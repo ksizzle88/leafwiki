@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  devcontainer:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      # Bind mount the workspace
+      - .:/workspace:cached
+      # Named volume for Claude settings (persists across container rebuilds)
+      - claude-settings:/home/vscode/.claude
+      # Named volume for shell history
+      - shell-history:/home/vscode/.history
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    # Keep container running
+    command: sleep infinity
+    # Network for shared services
+    networks:
+      - dev-network
+
+  # Example shared services (commented out - uncomment as needed)
+
+  # postgres:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_USER: dev
+  #     POSTGRES_PASSWORD: dev
+  #     POSTGRES_DB: dev_db
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   networks:
+  #     - dev-network
+  #   ports:
+  #     - "5432:5432"
+
+  # redis:
+  #   image: redis:7-alpine
+  #   volumes:
+  #     - redis-data:/data
+  #   networks:
+  #     - dev-network
+  #   ports:
+  #     - "6379:6379"
+
+volumes:
+  # Persistent volume for Claude settings
+  claude-settings:
+  # Persistent volume for shell history
+  shell-history:
+  # Uncomment if using postgres
+  # postgres-data:
+  # Uncomment if using redis
+  # redis-data:
+
+networks:
+  dev-network:
+    driver: bridge

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git:*)",
+      "Bash(npm:*)",
+      "Bash(node:*)",
+      "Bash(docker:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)"
+    ]
+  },
+  "model": "claude-sonnet-4-5-20250929"
+}

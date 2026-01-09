@@ -1,19 +1,13 @@
 {
     "name": "claudio (Claude Code)",
-    "build": {
-        "dockerfile": "Dockerfile"
-    },
+    "dockerComposeFile": "../docker-compose.yml",
+    "service": "devcontainer",
+    "workspaceFolder": "/workspace",
     "remoteUser": "vscode",
     "features": {
         "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
     },
-    "mounts": [
-        "source=${localWorkspaceFolder}/.claude,target=/home/vscode/.claude,type=bind"
-    ],
-    "containerEnv": {
-        "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}"
-    },
-    "postCreateCommand": "sudo npm -g i @anthropic-ai/claude-code && claude --version",
+    "postCreateCommand": "bash -c 'init-claude-settings.sh && sudo npm -g i @anthropic-ai/claude-code && claude --version'",
     "customizations": {
         "vscode": {
             "extensions": [
