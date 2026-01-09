@@ -3,7 +3,7 @@ set -e
 
 # Initialize ~/.claude with defaults if it doesn't exist or is empty
 CLAUDE_HOME="/home/vscode/.claude"
-DEFAULTS_DIR="/workspace/.claude-defaults"
+DEFAULTS_DIR="/workspace/.claude"
 
 echo "Initializing Claude settings..."
 

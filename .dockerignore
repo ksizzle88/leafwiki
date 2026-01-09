@@ -1,0 +1,77 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Dependencies (rebuild in container)
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+credentials.json
+secrets.yaml
+
+# Development files
+*.log
+*.tmp
+*.temp
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+dist/
+build/
+*.test
+coverage/
+.pytest_cache/
+.nyc_output/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Documentation (except README)
+*.md
+!README.md
+
+# Workspace directory (contains user projects)
+workspace/*
+!workspace/.gitkeep
+
+# Claude settings (will be initialized from .claude-defaults)
+.claude/settings.local.json
+.claude/*.local.md
+
+# Docker files
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile*
+.dockerignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# Test files
+tests/
+test/
+__tests__/
+*.spec.js
+*.test.js
+*.spec.ts
+*.test.ts

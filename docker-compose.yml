@@ -5,20 +5,60 @@ services:
     build:
       context: .
       dockerfile: .devcontainer/Dockerfile
+      args:
+        NODE_VERSION: 20
+    image: claudio-devcontainer:latest
+    container_name: claudio-dev
+    hostname: claudio
+
     volumes:
-      # Bind mount the workspace
+      # Bind mount the workspace (cached for better performance on macOS/Windows)
       - .:/workspace:cached
       # Named volume for Claude settings (persists across container rebuilds)
       - claude-settings:/home/vscode/.claude
       # Named volume for shell history
       - shell-history:/home/vscode/.history
+
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - TZ=${TZ:-UTC}
+      - LANG=C.UTF-8
+      - LC_ALL=C.UTF-8
+
     # Keep container running
     command: sleep infinity
+
+    # Healthcheck to ensure container is functional
+    healthcheck:
+      test: ["CMD", "node", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    # Resource limits (adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+    # Labels for metadata and organization
+    labels:
+      com.claudio.description: "Claude Code development container"
+      com.claudio.service: "devcontainer"
+      com.claudio.version: "1.0.0"
+      com.claudio.project: "claudio"
+
     # Network for shared services
     networks:
       - dev-network
+
+    # Restart policy
+    restart: unless-stopped
 
   # Example shared services (commented out - uncomment as needed)
 
