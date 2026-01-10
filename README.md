@@ -34,15 +34,7 @@ A production-ready, highly optimized devcontainer environment for Claude Code de
 
 1. **Docker Desktop** with WSL 2 (Windows) or Docker Engine (Mac/Linux)
 2. **VS Code** with [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-3. **ANTHROPIC_API_KEY** environment variable:
-   ```bash
-   # Linux/Mac
-   export ANTHROPIC_API_KEY="your-key-here"
-
-   # Windows PowerShell
-   setx ANTHROPIC_API_KEY "your-key-here"
-   ```
-   Restart VS Code after setting
+3. **Claude.ai Account** (for OAuth authentication) or **ANTHROPIC_API_KEY** (for token-based auth)
 
 ### First-Time Setup
 
@@ -64,6 +56,15 @@ code .
 claude --version
 node --version
 npm --version
+
+# 6. Authenticate Claude Code
+# Option A: Using VS Code Extension (OAuth - Recommended)
+# - The Claude Code extension will prompt you to authenticate via browser
+# - This creates OAuth credentials shared between VS Code and terminal
+
+# Option B: Using Terminal (Long-lived token)
+claude setup-token
+# Follow the prompts to authenticate
 ```
 
 ## Architecture
@@ -97,21 +98,38 @@ claudio/
 
 ### Volume Strategy
 
-**Named Volumes** (persist across rebuilds):
-- `claude-settings` → `/home/vscode/.claude` - User settings and configuration
-- `shell-history` → `/home/vscode/.history` - Persistent command history
+**Per-Container Volumes** (isolated per devcontainer instance):
+- `claudio-claude-config-${devcontainerId}` → `/home/vscode/.claude` - Claude settings and credentials (isolated per container)
+- `claudio-bashhistory-${devcontainerId}` → `/commandhistory` - Command history (isolated per container)
+
+**Shared Volumes** (persist across all containers):
+- `shell-history` → `/home/vscode/.history` - Shared shell history
 
 **Bind Mounts** (live editing):
 - `.:/workspace:cached` - Project source with cached mode for performance
 - `workspace/` contains your project repositories (gitignored)
+
+**Why Per-Container Volumes?**
+- Isolates authentication credentials between different projects
+- Prevents conflicts between VS Code extension and terminal Claude CLI
+- Follows official Claude Code devcontainer pattern
+- More secure for multi-client or multi-project work
 
 ### Configuration Hierarchy
 
 Claude Code reads configuration in this order (highest precedence first):
 
 1. **Project settings**: `workspace/your-project/.claude/settings.json`
-2. **User settings**: `~/.claude/settings.json` (in named volume)
+2. **User settings**: `~/.claude/settings.json` (in per-container volume)
 3. **Local overrides**: `~/.claude/settings.local.json` (gitignored)
+
+### Authentication
+
+**Unified Authentication**: VS Code extension and terminal Claude CLI share the same authentication stored in `/home/vscode/.claude/.credentials.json`. Both use OAuth via Claude.ai by default.
+
+**Authentication Methods**:
+- **OAuth (Recommended)**: Log in via browser when prompted by VS Code extension
+- **Long-lived Token**: Run `claude setup-token` in terminal for API token authentication
 
 ## Working with Projects
 
@@ -302,9 +320,33 @@ snyk container test claudio-devcontainer:latest
 
 ### Settings not persisting
 
-1. Verify named volumes exist: `docker volume ls`
+1. Verify per-container volumes exist: `docker volume ls | grep claudio-claude-config`
 2. Check initialization script ran: `ls ~/.claude`
-3. Reset settings volume if corrupted: `docker volume rm claudio_claude-settings`
+3. Check CLAUDE_CONFIG_DIR is set: `echo $CLAUDE_CONFIG_DIR`
+4. Reset settings volume if corrupted:
+   ```bash
+   # Find your container ID
+   docker ps -a | grep claudio
+   # Remove the specific volume (replace with actual volume name)
+   docker volume rm claudio-claude-config-<your-devcontainerId>
+   ```
+
+### Authentication not working
+
+**Symptom**: VS Code Claude works but terminal `claude` command doesn't authenticate
+
+**Solution**:
+1. Verify CLAUDE_CONFIG_DIR is set: `echo $CLAUDE_CONFIG_DIR` (should be `/home/vscode/.claude`)
+2. Check credentials exist: `ls -la ~/.claude/.credentials.json`
+3. Try terminal authentication:
+   ```bash
+   claude setup-token
+   ```
+4. If VS Code extension authenticated, the terminal should automatically use the same credentials
+5. Rebuild container if issue persists:
+   ```
+   Command Palette → Dev Containers: Rebuild Container
+   ```
 
 ## Contributing
 

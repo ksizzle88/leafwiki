@@ -23,9 +23,18 @@ This file documents the purpose, architecture, and conventions for the Claudio p
 
 ### Volume Management
 
-#### Named Volumes (Persistent Data)
-- `claude-settings` → `/home/vscode/.claude` - User Claude settings persist across rebuilds
-- `shell-history` → `/home/vscode/.history` - Command history persistence
+#### Per-Container Volumes (Isolated Data)
+- `claudio-claude-config-${devcontainerId}` → `/home/vscode/.claude` - Claude settings and credentials (isolated per container)
+- `claudio-bashhistory-${devcontainerId}` → `/commandhistory` - Command history (isolated per container)
+
+**Benefits**:
+- Each container gets its own authentication credentials
+- No conflicts between VS Code extension and terminal Claude CLI
+- Secure isolation for multi-project/multi-client work
+- Follows official Claude Code devcontainer pattern
+
+#### Shared Volumes (Persistent Data)
+- `shell-history` → `/home/vscode/.history` - Shell history shared across all Claudio containers
 
 #### Bind Mounts (Live Editing)
 - `.:/workspace:cached` - Project root with cached mode for better performance on macOS/Windows
@@ -34,8 +43,18 @@ This file documents the purpose, architecture, and conventions for the Claudio p
 ### Configuration Hierarchy
 
 1. **Project defaults** (committed): `.claude/` directory with reference documentation
-2. **User settings** (persisted): `~/.claude/` in named volume (copied from defaults on first run)
+2. **User settings** (persisted): `~/.claude/` in per-container volume (copied from defaults on first run)
 3. **Local overrides** (gitignored): `~/.claude/settings.local.json` for personal customizations
+
+### Authentication Strategy
+
+**Unified OAuth Authentication**: Both VS Code extension and terminal Claude CLI share authentication stored in `/home/vscode/.claude/.credentials.json`. The per-container volume ensures isolation between projects while maintaining consistency within each container.
+
+**How it works**:
+1. Authenticate via VS Code extension (OAuth browser flow) OR `claude setup-token` in terminal
+2. Credentials stored in `/home/vscode/.claude/.credentials.json`
+3. Both VS Code and terminal automatically use the same credentials
+4. Set via `CLAUDE_CONFIG_DIR` environment variable pointing to `/home/vscode/.claude`
 
 ## Development Guidelines
 

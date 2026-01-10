@@ -14,16 +14,14 @@ services:
     volumes:
       # Bind mount the workspace (cached for better performance on macOS/Windows)
       - .:/workspace:cached
-      # Named volume for Claude settings (persists across container rebuilds)
-      - claude-settings:/home/vscode/.claude
       # Named volume for shell history
       - shell-history:/home/vscode/.history
 
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - TZ=${TZ:-UTC}
       - LANG=C.UTF-8
       - LC_ALL=C.UTF-8
+      # Claude config handled via devcontainer.json mounts with ${devcontainerId}
 
     # Keep container running
     command: sleep infinity
@@ -85,10 +83,10 @@ services:
   #     - "6379:6379"
 
 volumes:
-  # Persistent volume for Claude settings
-  claude-settings:
   # Persistent volume for shell history
   shell-history:
+  # Note: Claude settings now use per-container volumes via devcontainer.json mounts
+  # (claudio-claude-config-${devcontainerId})
   # Uncomment if using postgres
   # postgres-data:
   # Uncomment if using redis
