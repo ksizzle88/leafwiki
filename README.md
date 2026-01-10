@@ -5,24 +5,28 @@ A production-ready, highly optimized devcontainer environment for Claude Code de
 ## Features
 
 🚀 **Performance Optimized**
+
 - BuildKit cache mounts for 3-5x faster rebuilds
 - Optimized Dockerfile layer ordering
 - Cached bind mounts for better I/O on macOS/Windows
 - Named volumes for package directories
 
 🔒 **Security Hardened**
+
 - Non-root user execution (vscode)
 - Comprehensive `.dockerignore` excludes secrets
 - Resource limits prevent container sprawl
 - Regular security scanning recommendations (Trivy/Snyk)
 
 🏗️ **Production-Grade Architecture**
-- Named volumes for persistent data (settings, history)
+
+dev- Named volumes for persistent data (settings, history)
 - Healthchecks for container monitoring
 - Labels for metadata and organization
 - Multi-project workspace support
 
 🛠️ **Developer Experience**
+
 - Claude Code CLI and VS Code extension pre-installed
 - Persistent shell history across sessions
 - Project-specific configuration support
@@ -34,7 +38,7 @@ A production-ready, highly optimized devcontainer environment for Claude Code de
 
 1. **Docker Desktop** with WSL 2 (Windows) or Docker Engine (Mac/Linux)
 2. **VS Code** with [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-3. **Claude.ai Account** (for OAuth authentication) or **ANTHROPIC_API_KEY** (for token-based auth)
+3. __Claude.ai Account__ (for OAuth authentication) or __ANTHROPIC_API_KEY__ (for token-based auth)
 
 ### First-Time Setup
 
@@ -65,13 +69,24 @@ npm --version
 # Option B: Using Terminal (Long-lived token)
 claude setup-token
 # Follow the prompts to authenticate
+
 ```
+
+## Running Side-by-Side (Sandbox Testing)
+
+This repo uses Docker Compose for the devcontainer. To test changes without disrupting your currently-running VS Code devcontainer, run Compose under a different **project name**.
+
+- One-off sandbox run (recommended): `docker compose -p claudio_sandbox up -d --build`
+- Equivalent using an env var: `COMPOSE_PROJECT_NAME=claudio_sandbox docker compose up -d --build`
+- Stop/remove only the sandbox stack: `docker compose -p claudio_sandbox down`
+
+Why this works: Compose prefixes container/network/volume names with the project name. Avoid using `container_name:` in `docker-compose.yml`, because it disables that isolation and causes collisions.
 
 ## Architecture
 
 ### Directory Structure
 
-```
+```ini
 claudio/
 ├── .devcontainer/
 │   ├── Dockerfile                    # Optimized with BuildKit + cache mounts
@@ -94,22 +109,27 @@ claudio/
 ├── docker-compose.yml                # Service orchestration with healthchecks
 ├── .gitignore
 └── README.md                         # This file
+
 ```
 
 ### Volume Strategy
 
 **Per-Container Volumes** (isolated per devcontainer instance):
+
 - `claudio-claude-config-${devcontainerId}` → `/home/vscode/.claude` - Claude settings and credentials (isolated per container)
 - `claudio-bashhistory-${devcontainerId}` → `/commandhistory` - Command history (isolated per container)
 
 **Shared Volumes** (persist across all containers):
+
 - `shell-history` → `/home/vscode/.history` - Shared shell history
 
 **Bind Mounts** (live editing):
+
 - `.:/workspace:cached` - Project source with cached mode for performance
 - `workspace/` contains your project repositories (gitignored)
 
 **Why Per-Container Volumes?**
+
 - Isolates authentication credentials between different projects
 - Prevents conflicts between VS Code extension and terminal Claude CLI
 - Follows official Claude Code devcontainer pattern
@@ -128,6 +148,7 @@ Claude Code reads configuration in this order (highest precedence first):
 **Unified Authentication**: VS Code extension and terminal Claude CLI share the same authentication stored in `/home/vscode/.claude/.credentials.json`. Both use OAuth via Claude.ai by default.
 
 **Authentication Methods**:
+
 - **OAuth (Recommended)**: Log in via browser when prompted by VS Code extension
 - **Long-lived Token**: Run `claude setup-token` in terminal for API token authentication
 
@@ -141,14 +162,17 @@ Clone your projects into the `workspace/` directory:
 cd /workspace/workspace
 git clone https://github.com/yourorg/your-project.git
 cd your-project
+
 ```
 
 ### Opening Projects
 
 **Single Project**:
+
 - File → Open Folder → `/workspace/workspace/your-project`
 
 **Multi-Project Workspace**:
+
 - File → Add Folder to Workspace → Select multiple projects
 - Save as `workspace.code-workspace`
 
@@ -169,6 +193,7 @@ cat > .claude/settings.json <<EOF
   }
 }
 EOF
+
 ```
 
 ## Advanced Configuration
@@ -186,6 +211,7 @@ deploy:
     reservations:
       cpus: '1.0'      # Guaranteed CPU cores
       memory: 2G       # Guaranteed memory
+
 ```
 
 ### Shared Services
@@ -202,12 +228,15 @@ postgres:
 redis:
   image: redis:7-alpine
   # ...
+
 ```
 
 Access from projects using service names as hostnames:
+
 ```python
 # Example: PostgreSQL connection
 DATABASE_URL = "postgresql://postgres:dev@postgres:5432/mydb"
+
 ```
 
 ### Custom Node.js Version
@@ -220,6 +249,7 @@ services:
     build:
       args:
         NODE_VERSION: 22  # Change to desired version
+
 ```
 
 ## Maintenance
@@ -228,8 +258,9 @@ services:
 
 After changes to Dockerfile or devcontainer.json:
 
-```
+```sh
 Command Palette → "Dev Containers: Rebuild Container"
+
 ```
 
 ### Volume Management
@@ -243,12 +274,13 @@ docker volume prune
 
 # Reset Claude settings (starts fresh from defaults)
 docker volume rm claudio_claude-settings
+
 ```
 
 ### Updating Dependencies
 
 - **Claude Code**: Automatically updated via `postCreateCommand`
-- **Node.js**: Change `NODE_VERSION` in docker-compose.yml
+- __Node.js__: Change `NODE_VERSION` in docker-compose.yml
 - **System packages**: Add to Dockerfile and rebuild
 
 ## Best Practices Applied
@@ -256,6 +288,7 @@ docker volume rm claudio_claude-settings
 This project implements current best practices from:
 
 ### Docker
+
 - ✅ Multi-stage build strategy (where applicable)
 - ✅ BuildKit cache mounts (`--mount=type=cache`)
 - ✅ Optimized layer ordering (least → most frequently changing)
@@ -264,6 +297,7 @@ This project implements current best practices from:
 - ✅ Security scanning recommendations
 
 ### Docker Compose
+
 - ✅ Healthchecks for service monitoring
 - ✅ Resource limits and reservations
 - ✅ Labels for metadata
@@ -271,12 +305,14 @@ This project implements current best practices from:
 - ✅ Network isolation
 
 ### Devcontainers
+
 - ✅ Features for reusable components
 - ✅ Separate postCreateCommand vs postStartCommand
 - ✅ Named volumes for node_modules and dependencies
 - ✅ Docker-outside-of-docker support
 
 ### Claude Code
+
 - ✅ Settings hierarchy (project → user → local)
 - ✅ Named volume persistence
 - ✅ Initialization script for first-run setup
@@ -302,6 +338,7 @@ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
 
 # Alternative: Snyk (requires account)
 snyk container test claudio-devcontainer:latest
+
 ```
 
 ## Troubleshooting
@@ -321,32 +358,46 @@ snyk container test claudio-devcontainer:latest
 ### Settings not persisting
 
 1. Verify per-container volumes exist: `docker volume ls | grep claudio-claude-config`
+
 2. Check initialization script ran: `ls ~/.claude`
+
 3. Check CLAUDE_CONFIG_DIR is set: `echo $CLAUDE_CONFIG_DIR`
+
 4. Reset settings volume if corrupted:
-   ```bash
-   # Find your container ID
-   docker ps -a | grep claudio
-   # Remove the specific volume (replace with actual volume name)
-   docker volume rm claudio-claude-config-<your-devcontainerId>
-   ```
+
+```bash
+# Find your container ID
+docker ps -a | grep claudio
+# Remove the specific volume (replace with actual volume name)
+docker volume rm claudio-claude-config-<your-devcontainerId>
+
+```
 
 ### Authentication not working
 
 **Symptom**: VS Code Claude works but terminal `claude` command doesn't authenticate
 
 **Solution**:
+
 1. Verify CLAUDE_CONFIG_DIR is set: `echo $CLAUDE_CONFIG_DIR` (should be `/home/vscode/.claude`)
+
 2. Check credentials exist: `ls -la ~/.claude/.credentials.json`
+
 3. Try terminal authentication:
-   ```bash
-   claude setup-token
-   ```
+
+```bash
+claude setup-token
+
+```
+
 4. If VS Code extension authenticated, the terminal should automatically use the same credentials
+
 5. Rebuild container if issue persists:
-   ```
-   Command Palette → Dev Containers: Rebuild Container
-   ```
+
+```sh
+Command Palette → Dev Containers: Rebuild Container
+
+```
 
 ## Contributing
 
@@ -360,16 +411,19 @@ Contributions welcome! Please:
 ## Resources
 
 **Documentation**:
+
 - [Claude Code Documentation](https://docs.anthropic.com/claude-code)
 - [VS Code Dev Containers](https://code.visualstudio.com/docs/devcontainers/containers)
 - [Docker Best Practices](https://docs.docker.com/develop/dev-best-practices/)
 
 **Best Practices Sources**:
+
 - [Ultimate Guide to Dev Containers](https://www.daytona.io/dotfiles/ultimate-guide-to-dev-containers)
 - [Docker Build Secrets Guide](https://www.datacamp.com/tutorial/docker-build-secrets-guide)
 - [Dev Containers: Multiple Projects](https://dev.to/graezykev/dev-containers-part-5-multiple-projects-shared-container-configuration-2hoi)
 
 **Security**:
+
 - [Trivy Container Scanner](https://github.com/aquasecurity/trivy)
 - [Snyk Container Security](https://snyk.io/product/container-vulnerability-management/)
 - [Docker Security Best Practices](https://docs.docker.com/engine/security/)

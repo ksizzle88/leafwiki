@@ -23,3 +23,5 @@ workspace/*
 .claude/settings.local.json
 .claude/*.local.md
 .sandbox/*
+.env
+
