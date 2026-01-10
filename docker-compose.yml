@@ -7,23 +7,22 @@ services:
       dockerfile: .devcontainer/Dockerfile
       args:
         NODE_VERSION: 20
-    image: claudio-devcontainer:latest
-    container_name: claudio-dev
+    # NOTE: Avoid `container_name:` so multiple Compose projects can run side-by-side
+    # (use `docker compose -p <name>` or `COMPOSE_PROJECT_NAME=<name>`).
+    image: ${COMPOSE_PROJECT_NAME:-claudio}-devcontainer:latest
     hostname: claudio
 
     volumes:
       # Bind mount the workspace (cached for better performance on macOS/Windows)
       - .:/workspace:cached
-      # Named volume for Claude settings (persists across container rebuilds)
-      - claude-settings:/home/vscode/.claude
       # Named volume for shell history
       - shell-history:/home/vscode/.history
 
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - TZ=${TZ:-UTC}
       - LANG=C.UTF-8
       - LC_ALL=C.UTF-8
+      # Claude config handled via devcontainer.json mounts with ${devcontainerId}
 
     # Keep container running
     command: sleep infinity
@@ -85,10 +84,10 @@ services:
   #     - "6379:6379"
 
 volumes:
-  # Persistent volume for Claude settings
-  claude-settings:
   # Persistent volume for shell history
   shell-history:
+  # Note: Claude settings now use per-container volumes via devcontainer.json mounts
+  # (claudio-claude-config-${devcontainerId})
   # Uncomment if using postgres
   # postgres-data:
   # Uncomment if using redis

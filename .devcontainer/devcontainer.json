@@ -7,7 +7,14 @@
     "features": {
         "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
     },
-    "postCreateCommand": "bash -c 'init-claude-settings.sh && sudo npm -g i @anthropic-ai/claude-code && claude --version'",
+    "mounts": [
+        "source=claudio-claude-config-${devcontainerId},target=/home/vscode/.claude,type=volume",
+        "source=claudio-bashhistory-${devcontainerId},target=/commandhistory,type=volume"
+    ],
+    "containerEnv": {
+        "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+    },
+    "postCreateCommand": "bash -c 'git config --global --add safe.directory /workspace && init-claude-settings.sh && sudo npm -g i @anthropic-ai/claude-code && claude --version'",
     "customizations": {
         "vscode": {
             "extensions": [
