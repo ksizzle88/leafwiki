@@ -1,0 +1,16 @@
+# docker-compose.override.yml.template
+# Copy this file to docker-compose.override.yml and customize with your local paths
+# cp docker-compose.override.yml.template docker-compose.override.yml
+
+version: '3.8'
+
+services:
+  devcontainer:
+    volumes:
+      # Add your local project mounts here
+      # Format: - /absolute/path/on/host:/workspace/workspace/folder-name:cached
+
+      # Example:
+      # - /home/username/workspaces/DPI_Analytics_DBT:/workspace/workspace/DPI_Analytics_DBT:cached
+      # - /home/username/workspaces/another-project:/workspace/workspace/another-project:cached
+      # - /home/username/sites/my-website:/workspace/workspace/my-website:cached

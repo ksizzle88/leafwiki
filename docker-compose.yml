@@ -13,23 +13,23 @@ services:
     hostname: claudio
 
     volumes:
-      # Bind mount the workspace (cached for better performance on macOS/Windows)
-      - .:/workspace:cached
-      # Named volume for shell history
-      - shell-history:/home/vscode/.history
+    # Bind mount the workspace (cached for better performance on macOS/Windows)
+    - .:/workspace:cached
+    # Named volume for shell history
+    - shell-history:/home/vscode/.history
 
     environment:
-      - TZ=${TZ:-UTC}
-      - LANG=C.UTF-8
-      - LC_ALL=C.UTF-8
-      # Claude config handled via devcontainer.json mounts with ${devcontainerId}
+    - TZ=${TZ:-UTC}
+    - LANG=C.UTF-8
+    - LC_ALL=C.UTF-8
+    # Claude config handled via devcontainer.json mounts with ${devcontainerId}
 
     # Keep container running
     command: sleep infinity
 
     # Healthcheck to ensure container is functional
     healthcheck:
-      test: ["CMD", "node", "--version"]
+      test: [ "CMD", "node", "--version" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -54,11 +54,10 @@ services:
 
     # Network for shared services
     networks:
-      - dev-network
+    - dev-network
 
     # Restart policy
     restart: unless-stopped
-
   # Example shared services (commented out - uncomment as needed)
 
   # postgres:
@@ -86,12 +85,12 @@ services:
 volumes:
   # Persistent volume for shell history
   shell-history:
-  # Note: Claude settings now use per-container volumes via devcontainer.json mounts
-  # (claudio-claude-config-${devcontainerId})
-  # Uncomment if using postgres
-  # postgres-data:
-  # Uncomment if using redis
-  # redis-data:
+    # Note: Claude settings now use per-container volumes via devcontainer.json mounts
+    # (claudio-claude-config-${devcontainerId})
+    # Uncomment if using postgres
+    # postgres-data:
+    # Uncomment if using redis
+    # redis-data:
 
 networks:
   dev-network:

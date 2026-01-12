@@ -154,6 +154,39 @@ Claude Code reads configuration in this order (highest precedence first):
 
 ## Working with Projects
 
+### Mounting Local Projects
+
+You can mount local projects from your host machine into the workspace using Docker Compose overrides:
+
+**1. Create override file** (first time only):
+
+```bash
+cp docker-compose.override.yml.template docker-compose.override.yml
+```
+
+**2. Edit `docker-compose.override.yml`** and add your projects:
+
+```yaml
+version: '3.8'
+
+services:
+  devcontainer:
+    volumes:
+      - /home/username/workspaces/project1:/workspace/workspace/project1:cached
+      - /home/username/workspaces/project2:/workspace/workspace/project2:cached
+      - /home/username/sites/my-website:/workspace/workspace/my-website:cached
+```
+
+**3. Rebuild container**:
+
+```sh
+Command Palette → "Dev Containers: Rebuild Container"
+```
+
+Your projects will be available at `/workspace/workspace/<project-name>/`
+
+**Note**: `docker-compose.override.yml` is gitignored and automatically merged with `docker-compose.yml`, so your local paths won't affect other developers.
+
 ### Adding Projects
 
 Clone your projects into the `workspace/` directory:

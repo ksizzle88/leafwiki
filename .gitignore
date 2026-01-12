@@ -24,6 +24,13 @@ workspace/*
 .claude/*.local.md
 .sandbox/*
 
+# Devcontainer local overrides (personal mounts/settings)
+.devcontainer/devcontainer.local.json
+.devcontainer/local-mounts.yml
+
+# Docker Compose local overrides (personal volume mounts)
+docker-compose.override.yml
+
 # Environment configuration
 .env
 
