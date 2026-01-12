@@ -1,52 +1,66 @@
 #!/bin/bash
 set -e
 
-# Initialize ~/.claude with defaults if it doesn't exist or is empty
+# Initialize ~/.claude with defaults from:
+# 1. Image defaults (/opt/claudio-defaults/.claude/) - shared commands, reference docs
+# 2. Project .claude/ (/workspace/.claude/) - project-specific overrides
+#
 # This script runs on postCreateCommand for each new container
+
 CLAUDE_HOME="/home/vscode/.claude"
-DEFAULTS_DIR="/workspace/.claude"
+IMAGE_DEFAULTS="/opt/claudio-defaults/.claude"
+PROJECT_CLAUDE="/workspace/.claude"
 
 echo "Initializing Claude settings..."
 
 # Create ~/.claude if it doesn't exist
 mkdir -p "$CLAUDE_HOME"
 
-# Copy defaults if ~/.claude is empty (first run for this specific devcontainer)
+# Only initialize if ~/.claude is empty (first run for this container)
 if [ -z "$(ls -A "$CLAUDE_HOME" 2>/dev/null)" ]; then
-    echo "First run detected for this container. Copying default settings from $DEFAULTS_DIR"
-    if [ -d "$DEFAULTS_DIR" ] && [ -n "$(ls -A "$DEFAULTS_DIR" 2>/dev/null)" ]; then
-        # Only copy non-credential files (settings.json, reference docs, etc.)
-        # Credentials (.credentials.json) will be created by Claude CLI on first auth
-        find "$DEFAULTS_DIR" -type f -name "*.json" ! -name ".credentials.json" -exec cp {} "$CLAUDE_HOME/" \;
-        find "$DEFAULTS_DIR" -type f -name "*.md" -exec cp {} "$CLAUDE_HOME/" \;
+    echo "First run detected for this container."
 
-        # Copy reference directory if it exists
-        if [ -d "$DEFAULTS_DIR/reference" ]; then
-            cp -r "$DEFAULTS_DIR/reference" "$CLAUDE_HOME/"
-        fi
-
-        echo "Default settings copied to ~/.claude"
-        echo "Note: Authentication is per-container. You'll need to authenticate using:"
-        echo "  - VS Code: Use the Claude Code extension (will prompt for OAuth)"
-        echo "  - Terminal: Run 'claude setup-token' for long-lived token"
-    else
-        echo "No defaults found, creating minimal settings.json"
-        cat > "$CLAUDE_HOME/settings.json" <<'EOF'
-{
-  "permissions": {
-    "allow": [
-      "Bash(git:*)",
-      "Bash(npm:*)",
-      "Bash(node:*)",
-      "Bash(docker:*)"
-    ]
-  }
-}
-EOF
+    # Step 1: Copy image defaults (shared commands, reference, settings)
+    if [ -d "$IMAGE_DEFAULTS" ] && [ -n "$(ls -A "$IMAGE_DEFAULTS" 2>/dev/null)" ]; then
+        echo "Copying shared defaults from image ($IMAGE_DEFAULTS)..."
+        cp -r "$IMAGE_DEFAULTS"/* "$CLAUDE_HOME/"
     fi
+
+    # Step 2: Overlay project-specific .claude/ (overrides image defaults)
+    if [ -d "$PROJECT_CLAUDE" ] && [ -n "$(ls -A "$PROJECT_CLAUDE" 2>/dev/null)" ]; then
+        echo "Overlaying project-specific settings from $PROJECT_CLAUDE..."
+
+        # Copy everything except credentials
+        find "$PROJECT_CLAUDE" -maxdepth 1 -type f ! -name ".credentials.json" -exec cp {} "$CLAUDE_HOME/" \;
+
+        # Merge directories (commands, reference) - project files override image defaults
+        for dir in commands reference; do
+            if [ -d "$PROJECT_CLAUDE/$dir" ]; then
+                mkdir -p "$CLAUDE_HOME/$dir"
+                cp -r "$PROJECT_CLAUDE/$dir"/* "$CLAUDE_HOME/$dir/" 2>/dev/null || true
+            fi
+        done
+    fi
+
+    echo "Claude settings initialized."
+    echo "  - Shared commands from base image"
+    echo "  - Project-specific overrides applied"
 else
-    echo "~/.claude already initialized for this container, skipping defaults copy"
+    echo "~/.claude already initialized for this container, skipping."
 fi
 
-echo "Claude settings initialization complete"
-echo "CLAUDE_CONFIG_DIR is set to: ${CLAUDE_CONFIG_DIR:-/home/vscode/.claude}"
+# ALWAYS add CLAUDE_CONFIG_DIR to shell profile (even if ~/.claude existed)
+# This ensures terminal sessions can find credentials
+if ! grep -q "CLAUDE_CONFIG_DIR" ~/.bashrc 2>/dev/null; then
+    echo "" >> ~/.bashrc
+    echo "# Claude Code configuration" >> ~/.bashrc
+    echo "export CLAUDE_CONFIG_DIR=/home/vscode/.claude" >> ~/.bashrc
+    echo "Added CLAUDE_CONFIG_DIR to ~/.bashrc for terminal sessions"
+fi
+
+echo ""
+echo "Authentication: You'll need to authenticate using:"
+echo "  - VS Code: Claude Code extension (OAuth prompt)"
+echo "  - Terminal: claude login"
+echo ""
+echo "CLAUDE_CONFIG_DIR: ${CLAUDE_CONFIG_DIR:-/home/vscode/.claude}"

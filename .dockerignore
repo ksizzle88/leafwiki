@@ -55,6 +55,9 @@ workspace/*
 .claude/settings.local.json
 .claude/*.local.md
 
+# Claudio-dev specific commands (not for base image)
+.claude-dev/
+
 # Docker files
 docker-compose.yml
 docker-compose.*.yml

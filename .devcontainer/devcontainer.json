@@ -1,20 +1,20 @@
 {
     "name": "claudio (Claude Code)",
-    "dockerComposeFile": "../docker-compose.yml",
-    "service": "devcontainer",
+    "image": "claudio-base:latest",
     "workspaceFolder": "/workspace",
     "remoteUser": "vscode",
     "features": {
         "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
     },
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
     "mounts": [
-        "source=claudio-claude-config-${devcontainerId},target=/home/vscode/.claude,type=volume",
+        "source=claudio-claude-${devcontainerId},target=/home/vscode/.claude,type=volume",
         "source=claudio-bashhistory-${devcontainerId},target=/commandhistory,type=volume"
     ],
     "containerEnv": {
         "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
     },
-    "postCreateCommand": "bash -c 'git config --global --add safe.directory /workspace && init-claude-settings.sh && sudo npm -g i @anthropic-ai/claude-code && claude --version'",
+    "postCreateCommand": "cd ~ && init-claude-settings.sh && if [ -d /workspace/.claude-dev ]; then cp -r /workspace/.claude-dev/* ~/.claude/; echo 'Claudio-dev commands loaded'; fi && claude --version",
     "customizations": {
         "vscode": {
             "extensions": [

@@ -14,7 +14,7 @@ TRAINER2_BRANCH="${2:-feature/dev_container_setup}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PARENT_DIR="$(dirname "$SCRIPT_DIR")"
-CLAUDIO_DIR="$SCRIPT_DIR"
+CLAUDIO_DIR="$PARENT_DIR/claudio"
 TRAINER2_DIR="$PARENT_DIR/trainer2"
 
 GREEN='\033[0;32m'
@@ -84,7 +84,7 @@ echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}  Rebuilding After Claudio Updates${NC}"
 echo -e "${BLUE}=========================================${NC}"
 echo ""
-echo "When you improve Claudio's Dockerfile.base:"
+# echo "When you improve Claudio's Dockerfile.base:"
 echo "  cd $CLAUDIO_DIR"
 echo "  ./build-base.sh"
 echo ""
