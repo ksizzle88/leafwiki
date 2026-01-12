@@ -6,6 +6,7 @@
     "features": {
         "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
     },
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
     "mounts": [
         "source=claudio-claude-${devcontainerId},target=/home/vscode/.claude,type=volume",
         "source=claudio-bashhistory-${devcontainerId},target=/commandhistory,type=volume"
@@ -13,7 +14,7 @@
     "containerEnv": {
         "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
     },
-    "postCreateCommand": "init-claude-settings.sh && claude --version",
+    "postCreateCommand": "cd ~ && init-claude-settings.sh && if [ -d /workspace/.claude-dev ]; then cp -r /workspace/.claude-dev/* ~/.claude/; echo 'Claudio-dev commands loaded'; fi && claude --version",
     "customizations": {
         "vscode": {
             "extensions": [

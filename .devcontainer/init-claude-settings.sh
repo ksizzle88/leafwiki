@@ -49,6 +49,15 @@ else
     echo "~/.claude already initialized for this container, skipping."
 fi
 
+# ALWAYS add CLAUDE_CONFIG_DIR to shell profile (even if ~/.claude existed)
+# This ensures terminal sessions can find credentials
+if ! grep -q "CLAUDE_CONFIG_DIR" ~/.bashrc 2>/dev/null; then
+    echo "" >> ~/.bashrc
+    echo "# Claude Code configuration" >> ~/.bashrc
+    echo "export CLAUDE_CONFIG_DIR=/home/vscode/.claude" >> ~/.bashrc
+    echo "Added CLAUDE_CONFIG_DIR to ~/.bashrc for terminal sessions"
+fi
+
 echo ""
 echo "Authentication: You'll need to authenticate using:"
 echo "  - VS Code: Claude Code extension (OAuth prompt)"
