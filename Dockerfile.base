@@ -1,0 +1,89 @@
+# syntax=docker/dockerfile:1
+# Claudio Base Image - Reusable foundation for Claude Code development
+#
+# Usage:
+#   ./build-base.sh              # Builds claudio-base:latest
+#   docker run --rm claudio-base:latest claude --version
+#
+# Projects can:
+#   - Use directly: "image": "claudio-base:latest"
+#   - Extend: FROM claudio-base:latest
+
+FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
+
+# Build args
+ARG DEBIAN_FRONTEND=noninteractive
+ARG NODE_VERSION=20
+ARG GIT_USER_EMAIL
+ARG GIT_USER_NAME
+
+# Layer 1: System dependencies (changes infrequently)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+        # Core utilities
+        ca-certificates \
+        curl \
+        git \
+        openssh-client \
+        jq \
+        wget \
+        make \
+        # Build essentials (for native modules)
+        build-essential \
+        libpq-dev \
+        # Python (Ubuntu 24.04 native 3.12)
+        python3 \
+        python3-dev \
+        python3-venv \
+        python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Layer 2: Python aliases and pip upgrade
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1 \
+    && python -m pip install --upgrade --break-system-packages --ignore-installed pip setuptools wheel
+
+# Layer 3: Node.js installation (via NodeSource)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Layer 4: Environment configuration
+ENV npm_config_update_notifier=false \
+    npm_config_fund=false \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    CLAUDE_CONFIG_DIR=/home/vscode/.claude
+
+# Layer 5: Claude Code CLI (installed globally)
+RUN npm -g i @anthropic-ai/claude-code
+
+# Layer 6: Claude initialization script
+COPY .devcontainer/init-claude-settings.sh /usr/local/bin/init-claude-settings.sh
+RUN chmod +x /usr/local/bin/init-claude-settings.sh
+
+# Layer 7: Shared Claude config (commands, reference docs, settings)
+# These are the defaults that all projects using this base image will have
+COPY .claude/ /opt/claudio-defaults/.claude/
+RUN chown -R vscode:vscode /opt/claudio-defaults/
+
+# Layer 8: User directory setup
+RUN mkdir -p /home/vscode/.claude /home/vscode/.history \
+    && chown -R vscode:vscode /home/vscode/.claude /home/vscode/.history
+
+# Switch to vscode user for git config
+USER vscode
+
+# Layer 9: Git configuration (as vscode user)
+RUN git config --global init.defaultBranch main \
+    && git config --global push.autoSetupRemote true \
+    && git config --global --add safe.directory '*' \
+    && if [ -n "$GIT_USER_EMAIL" ]; then git config --global user.email "$GIT_USER_EMAIL"; fi \
+    && if [ -n "$GIT_USER_NAME" ]; then git config --global user.name "$GIT_USER_NAME"; fi
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD node --version && python --version || exit 1
