@@ -4,9 +4,11 @@ services:
   devcontainer:
     build:
       context: .
-      dockerfile: .devcontainer/Dockerfile
+      dockerfile: Dockerfile.base
       args:
         NODE_VERSION: 20
+        GIT_USER_EMAIL: ${GIT_USER_EMAIL:-}
+        GIT_USER_NAME: ${GIT_USER_NAME:-}
     # NOTE: Avoid `container_name:` so multiple Compose projects can run side-by-side
     # (use `docker compose -p <name>` or `COMPOSE_PROJECT_NAME=<name>`).
     image: ${COMPOSE_PROJECT_NAME:-claudio}-devcontainer:latest

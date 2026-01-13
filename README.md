@@ -417,9 +417,15 @@ ghcr.io/username/claudio:abc1234
 | `REGISTRY_ENABLED` | `false` | Enable/disable local hook builds |
 | `REGISTRY_URL` | `ghcr.io` | Registry hostname |
 | `REGISTRY_USERNAME` | - | Your GitHub username |
-| `REGISTRY_IMAGE_NAME` | `claudio` | Image name |
+| `REGISTRY_IMAGE_NAME` | Auto-detected | Image name (auto-detected from git remote, or override manually) |
 | `GITHUB_PACKAGE_PAT` | - | Personal access token |
 | `SKIP_IMAGE_BUILD` | `false` | Skip current build (runtime only) |
+
+**Universal Hook Behavior:**
+The pre-push hook automatically detects the repository name from your git remote URL, making it work seamlessly across any project using Claudio:
+- In `claudio` repo → pushes to `ghcr.io/username/claudio:branch`
+- In `my-app` repo → pushes to `ghcr.io/username/my-app:branch`
+- Override with `REGISTRY_IMAGE_NAME` if needed
 
 ### Troubleshooting
 

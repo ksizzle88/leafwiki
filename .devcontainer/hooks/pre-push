@@ -60,7 +60,8 @@ if [ "${REGISTRY_ENABLED}" != "true" ]; then
 fi
 
 # Validate required environment variables
-REQUIRED_VARS=("REGISTRY_URL" "REGISTRY_USERNAME" "REGISTRY_IMAGE_NAME" "GITHUB_PACKAGE_PAT")
+# Note: REGISTRY_IMAGE_NAME is optional - will be auto-detected from git remote
+REQUIRED_VARS=("REGISTRY_URL" "REGISTRY_USERNAME" "GITHUB_PACKAGE_PAT")
 MISSING_VARS=()
 
 for var in "${REQUIRED_VARS[@]}"; do
@@ -86,6 +87,24 @@ COMMIT_SHA=$(git rev-parse --short=7 HEAD)
 
 # Check if we're pushing a tag
 GIT_TAG=$(git describe --exact-match --tags 2>/dev/null || echo "")
+
+# Auto-detect repository name from git remote
+# This makes the hook universal - works in any repo!
+if [ -z "$REGISTRY_IMAGE_NAME" ]; then
+    # Extract repo name from git remote URL
+    REMOTE_URL=$(git config --get remote.origin.url 2>/dev/null || echo "")
+    if [ -n "$REMOTE_URL" ]; then
+        # Extract repo name from URL (works with https and ssh)
+        # https://github.com/user/repo.git → repo
+        # git@github.com:user/repo.git → repo
+        REGISTRY_IMAGE_NAME=$(echo "$REMOTE_URL" | sed -e 's/.*[:/]\([^/]*\)\/\([^/]*\)\.git$/\2/' -e 's/.*[:/]\([^/]*\)$/\1/' | sed 's/\.git$//')
+        log_info "Auto-detected repository: $REGISTRY_IMAGE_NAME"
+    else
+        # Fallback to workspace directory name
+        REGISTRY_IMAGE_NAME=$(basename "$(pwd)")
+        log_warning "Could not detect git remote, using directory name: $REGISTRY_IMAGE_NAME"
+    fi
+fi
 
 log_info "Branch: $BRANCH"
 log_info "Commit: $COMMIT_SHA"
@@ -139,15 +158,19 @@ BUILD_START=$(date +%s)
 # Construct build command with all tags
 BUILD_CMD="docker build"
 BUILD_CMD="$BUILD_CMD --build-arg BUILDKIT_INLINE_CACHE=1"
-BUILD_CMD="$BUILD_CMD --cache-from ${IMAGE_BASE}:${BRANCH}"
-BUILD_CMD="$BUILD_CMD --cache-from ${IMAGE_BASE}:latest"
+
+# Try to use cache from remote (won't fail if it doesn't exist)
+# Using 2>&1 to suppress "image not found" errors
+BUILD_CMD="$BUILD_CMD --cache-from ${IMAGE_BASE}:${BRANCH} || true"
+BUILD_CMD="$BUILD_CMD --cache-from ${IMAGE_BASE}:latest || true"
 
 # Add all tags to build command
 for tag in "${TAGS[@]}"; do
     BUILD_CMD="$BUILD_CMD -t $tag"
 done
 
-BUILD_CMD="$BUILD_CMD -f .devcontainer/Dockerfile ."
+# Use Dockerfile.base (the real Dockerfile)
+BUILD_CMD="$BUILD_CMD -f Dockerfile.base ."
 
 # Execute build
 eval $BUILD_CMD
