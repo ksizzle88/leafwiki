@@ -159,10 +159,9 @@ BUILD_START=$(date +%s)
 BUILD_CMD="docker build"
 BUILD_CMD="$BUILD_CMD --build-arg BUILDKIT_INLINE_CACHE=1"
 
-# Try to use cache from remote (won't fail if it doesn't exist)
-# Using 2>&1 to suppress "image not found" errors
-BUILD_CMD="$BUILD_CMD --cache-from ${IMAGE_BASE}:${BRANCH} || true"
-BUILD_CMD="$BUILD_CMD --cache-from ${IMAGE_BASE}:latest || true"
+# Try to use cache from remote (silently ignored if image doesn't exist)
+BUILD_CMD="$BUILD_CMD --cache-from ${IMAGE_BASE}:${BRANCH}"
+BUILD_CMD="$BUILD_CMD --cache-from ${IMAGE_BASE}:latest"
 
 # Add all tags to build command
 for tag in "${TAGS[@]}"; do
