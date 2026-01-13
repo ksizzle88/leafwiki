@@ -9,8 +9,7 @@
     },
     "mounts": [
         "source=claudio-claude-${devcontainerId},target=/home/vscode/.claude,type=volume",
-        "source=claudio-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
-        "source=/mnt/c/Users/KeithSchepis/workspaces/apd/DPI_Analytics_DBT,target=/workspace/workspace/DPI_Analytics_DBT,type=bind,consistency=cached"
+        "source=claudio-bashhistory-${devcontainerId},target=/commandhistory,type=volume"
     ],
     "containerEnv": {
         "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
