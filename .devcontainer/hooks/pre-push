@@ -171,9 +171,6 @@ done
 # Use Dockerfile.base (the real Dockerfile)
 BUILD_CMD="$BUILD_CMD -f Dockerfile.base ."
 
-# Debug: Show the command that will be executed
-echo "DEBUG: BUILD_CMD=$BUILD_CMD"
-
 # Execute build
 eval $BUILD_CMD
 
