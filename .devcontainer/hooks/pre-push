@@ -1,0 +1,194 @@
+#!/bin/bash
+# Pre-push hook: Automatically build and push Docker image to registry
+#
+# This hook runs before git push completes. If the build or push fails,
+# the git push is aborted to prevent code/image mismatches.
+#
+# Skip this hook:
+#   - SKIP_IMAGE_BUILD=true git push origin main
+#   - git push --no-verify origin main
+
+set -e  # Exit on error
+set -o pipefail  # Catch errors in pipes
+
+# Color output for better readability
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Helper functions
+log_info() {
+    echo -e "${BLUE}[Build]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[Build]${NC} ✓ $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[Build]${NC} ⚠ $1"
+}
+
+log_error() {
+    echo -e "${RED}[Build]${NC} ✗ $1"
+}
+
+# Check if build should be skipped
+if [ "${SKIP_IMAGE_BUILD}" = "true" ]; then
+    log_warning "Skipping image build (SKIP_IMAGE_BUILD=true)"
+    exit 0
+fi
+
+# Load environment variables from .env if it exists
+ENV_FILE="/workspace/.env"
+if [ -f "$ENV_FILE" ]; then
+    log_info "Loading configuration from .env..."
+    # Export variables from .env (ignore comments and empty lines)
+    set -a
+    source <(grep -v '^#' "$ENV_FILE" | grep -v '^$')
+    set +a
+else
+    log_warning ".env file not found, using environment variables only"
+fi
+
+# Check if registry build/push is enabled
+if [ "${REGISTRY_ENABLED}" != "true" ]; then
+    log_warning "Registry push disabled (REGISTRY_ENABLED != true)"
+    exit 0
+fi
+
+# Validate required environment variables
+REQUIRED_VARS=("REGISTRY_URL" "REGISTRY_USERNAME" "REGISTRY_IMAGE_NAME" "GITHUB_PAT")
+MISSING_VARS=()
+
+for var in "${REQUIRED_VARS[@]}"; do
+    if [ -z "${!var}" ]; then
+        MISSING_VARS+=("$var")
+    fi
+done
+
+if [ ${#MISSING_VARS[@]} -gt 0 ]; then
+    log_error "Missing required environment variables: ${MISSING_VARS[*]}"
+    log_error "Please configure these in .env file"
+    exit 1
+fi
+
+# Determine git context
+log_info "Determining git context..."
+
+# Get current branch name (sanitize for Docker tag format)
+BRANCH=$(git rev-parse --abbrev-ref HEAD | sed 's/[^a-zA-Z0-9._-]/-/g')
+
+# Get short commit SHA
+COMMIT_SHA=$(git rev-parse --short=7 HEAD)
+
+# Check if we're pushing a tag
+GIT_TAG=$(git describe --exact-match --tags 2>/dev/null || echo "")
+
+log_info "Branch: $BRANCH"
+log_info "Commit: $COMMIT_SHA"
+if [ -n "$GIT_TAG" ]; then
+    log_info "Tag: $GIT_TAG"
+fi
+
+# Build image name
+IMAGE_BASE="${REGISTRY_URL}/${REGISTRY_USERNAME}/${REGISTRY_IMAGE_NAME}"
+
+# Determine tags to apply
+TAGS=()
+TAGS+=("${IMAGE_BASE}:${BRANCH}")
+TAGS+=("${IMAGE_BASE}:${COMMIT_SHA}")
+
+# Add 'latest' tag only for main/master branch
+if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+    TAGS+=("${IMAGE_BASE}:latest")
+fi
+
+# Add semver tag if pushing a version tag
+if [[ "$GIT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+    TAGS+=("${IMAGE_BASE}:${GIT_TAG}")
+fi
+
+# Display tags that will be created
+log_info "Tags to create:"
+for tag in "${TAGS[@]}"; do
+    echo "  - $tag"
+done
+
+# Login to registry
+log_info "Authenticating with ${REGISTRY_URL}..."
+echo "${GITHUB_PAT}" | docker login "${REGISTRY_URL}" -u "${REGISTRY_USERNAME}" --password-stdin > /dev/null 2>&1
+
+if [ $? -ne 0 ]; then
+    log_error "Failed to authenticate with ${REGISTRY_URL}"
+    log_error "Check your GITHUB_PAT token has 'write:packages' scope"
+    exit 1
+fi
+
+log_success "Authentication successful"
+
+# Enable BuildKit
+export DOCKER_BUILDKIT=1
+
+# Build Docker image with multiple tags
+log_info "Building Docker image with BuildKit..."
+BUILD_START=$(date +%s)
+
+# Construct build command with all tags
+BUILD_CMD="docker build"
+BUILD_CMD="$BUILD_CMD --build-arg BUILDKIT_INLINE_CACHE=1"
+BUILD_CMD="$BUILD_CMD --cache-from ${IMAGE_BASE}:${BRANCH}"
+BUILD_CMD="$BUILD_CMD --cache-from ${IMAGE_BASE}:latest"
+
+# Add all tags to build command
+for tag in "${TAGS[@]}"; do
+    BUILD_CMD="$BUILD_CMD -t $tag"
+done
+
+BUILD_CMD="$BUILD_CMD -f .devcontainer/Dockerfile ."
+
+# Execute build
+eval $BUILD_CMD
+
+if [ $? -ne 0 ]; then
+    log_error "Docker build failed"
+    exit 1
+fi
+
+BUILD_END=$(date +%s)
+BUILD_TIME=$((BUILD_END - BUILD_START))
+log_success "Build complete (${BUILD_TIME}s)"
+
+# Push all tags to registry
+log_info "Pushing images to ${REGISTRY_URL}..."
+PUSH_START=$(date +%s)
+
+PUSH_FAILED=0
+for tag in "${TAGS[@]}"; do
+    log_info "Pushing $tag..."
+    docker push "$tag"
+
+    if [ $? -ne 0 ]; then
+        log_error "Failed to push $tag"
+        PUSH_FAILED=1
+    fi
+done
+
+if [ $PUSH_FAILED -eq 1 ]; then
+    log_error "Some image pushes failed"
+    exit 1
+fi
+
+PUSH_END=$(date +%s)
+PUSH_TIME=$((PUSH_END - PUSH_START))
+log_success "Push complete (${PUSH_TIME}s)"
+
+# Summary
+echo ""
+log_success "Container images built and pushed successfully!"
+log_info "View images at: https://${REGISTRY_URL}/${REGISTRY_USERNAME}/${REGISTRY_IMAGE_NAME}"
+echo ""
+
+exit 0
