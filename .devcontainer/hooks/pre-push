@@ -82,6 +82,24 @@ log_info "Determining git context..."
 # Get current branch name (sanitize for Docker tag format)
 BRANCH=$(git rev-parse --abbrev-ref HEAD | sed 's/[^a-zA-Z0-9._-]/-/g')
 
+# Auto-skip on protected branches (CI/CD will handle them)
+PROTECTED_BRANCHES=("main" "master" "develop" "stage")
+for protected in "${PROTECTED_BRANCHES[@]}"; do
+    if [ "$BRANCH" = "$protected" ]; then
+        log_info "Skipping build for protected branch '$BRANCH'"
+        log_info "GitHub Actions will build and push this branch automatically"
+        log_info "To force build locally: SKIP_PROTECTED_BRANCH=false git push"
+
+        # Allow override via environment variable
+        if [ "${SKIP_PROTECTED_BRANCH}" = "false" ]; then
+            log_warning "Override detected: Building protected branch locally"
+            break
+        fi
+
+        exit 0
+    fi
+done
+
 # Get short commit SHA
 COMMIT_SHA=$(git rev-parse --short=7 HEAD)
 
