@@ -2,8 +2,8 @@
 # Build the claudio-base Docker image
 #
 # Usage:
-#   ./build-base.sh                    # Builds claudio-base:latest
-#   ./build-base.sh --tags dev         # Builds claudio-base:dev
+#   ./build-base.sh                       # Builds claudio-base:<current-branch>
+#   ./build-base.sh --tags latest         # Builds claudio-base:latest
 #   ./build-base.sh --tags latest v1.0.0  # Builds with primary tag 'latest' and additional tag 'v1.0.0'
 #
 # Loads git configuration from .env file (if present):
@@ -37,9 +37,17 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Default to 'latest' if no tags specified
+# Default to current branch name if no tags specified
 if [ ${#TAG_ARRAY[@]} -eq 0 ]; then
-    TAG_ARRAY=("latest")
+    # Get current branch name (sanitize for Docker tag format)
+    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/[^a-zA-Z0-9._-]/-/g')
+
+    if [ -n "$CURRENT_BRANCH" ]; then
+        TAG_ARRAY=("$CURRENT_BRANCH")
+    else
+        # Fallback to 'dev' if not in a git repo
+        TAG_ARRAY=("dev")
+    fi
 fi
 
 echo "Building claudio-base with tags: ${TAG_ARRAY[@]}..."

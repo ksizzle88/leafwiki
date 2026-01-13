@@ -277,17 +277,33 @@ RUN PROJECT_CLAUDE=/app/.claude /usr/local/bin/install-claudio.sh
 
 ## Automated Container Build & Push
 
-Claudio includes an automated build and push system that triggers whenever you push code via git. This ensures your container images stay in sync with your code.
+Claudio includes two complementary automated build systems:
 
-### How It Works
+### 1. GitHub Actions (CI/CD for main branch)
 
-A git pre-push hook automatically:
-1. Builds your Docker image using BuildKit optimizations
-2. Tags it with branch name, commit SHA, and semver (if applicable)
-3. Pushes all tags to GitHub Container Registry (GHCR)
-4. Aborts the git push if build/push fails (preventing mismatches)
+When you merge to `main` or `master`, a GitHub Action automatically:
+- Builds your Docker image on GitHub's infrastructure
+- Tags it with `latest`, commit SHA, and branch name
+- Pushes to GitHub Container Registry (GHCR)
+- Generates build attestations for security
 
-### Setup
+**No setup required** - uses GitHub's built-in `GITHUB_TOKEN` automatically.
+
+### 2. Git Pre-Push Hook (Local development)
+
+For feature branches, a git pre-push hook optionally:
+- Builds your Docker image locally using BuildKit
+- Tags it with branch name, commit SHA, and semver (if applicable)
+- Pushes to GHCR from your machine
+- Aborts the git push if build/push fails (preventing mismatches)
+
+**Requires setup** - see configuration section below.
+
+### Setup (Pre-Push Hook Only)
+
+**GitHub Actions require no setup** - they work automatically once the workflow file is committed.
+
+For the **optional** local pre-push hook:
 
 **1. Create GitHub Personal Access Token:**
 
@@ -311,7 +327,7 @@ REGISTRY_USERNAME=your-github-username
 REGISTRY_IMAGE_NAME=claudio
 
 # Your GitHub PAT
-GITHUB_PAT=ghp_your_token_here
+GITHUB_PACKAGE_PAT=ghp_your_token_here
 ```
 
 **3. Install hooks (automatic):**
@@ -351,16 +367,28 @@ git push --no-verify origin main
 SKIP_IMAGE_BUILD=true git push origin main
 ```
 
+### When to Use Which System
+
+| Scenario | Recommended System | Why |
+|----------|-------------------|-----|
+| Merging to `main` | GitHub Actions | Runs on GitHub infrastructure, no local resources used |
+| Feature branch development | Pre-push hook (optional) | Test images before PR, keep branches in sync |
+| Personal projects | GitHub Actions only | Simpler, no PAT setup needed |
+| Team projects | Both | Actions for main, hooks for feature testing |
+
 ### Tagging Strategy
 
-Images are automatically tagged based on git context:
+**GitHub Actions (main branch):**
+- `latest` - Always points to most recent main build
+- `{sha}` - Commit SHA (e.g., `abc1234`)
+- `main` - Tracks main branch
+- `v1.2.3` - Semantic version tags (if pushing tags)
 
-| Tag | When | Example |
-|-----|------|---------|
-| `{branch}` | All pushes | `feature-auth`, `main` |
-| `{sha}` | All pushes | `abc1234` |
-| `latest` | main/master only | `latest` |
-| `{version}` | Version tags | `v1.2.3` |
+**Pre-Push Hook (feature branches):**
+- `{branch}` - Branch name (e.g., `feature-auth`)
+- `{sha}` - Commit SHA (e.g., `abc1234`)
+- `latest` - Only for main/master branches
+- `v1.2.3` - Semantic version tags (if detected)
 
 **Example for main branch:**
 ```
@@ -377,45 +405,60 @@ ghcr.io/username/claudio:abc1234
 
 ### Configuration Options
 
+**GitHub Actions:**
+- No configuration needed - controlled by [.github/workflows/build-push-image.yml](.github/workflows/build-push-image.yml)
+- Uses `GITHUB_TOKEN` automatically (no PAT required)
+- Can be disabled by deleting the workflow file
+
+**Pre-Push Hook (.env file):**
+
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `REGISTRY_ENABLED` | `false` | Enable/disable automated builds |
+| `REGISTRY_ENABLED` | `false` | Enable/disable local hook builds |
 | `REGISTRY_URL` | `ghcr.io` | Registry hostname |
 | `REGISTRY_USERNAME` | - | Your GitHub username |
 | `REGISTRY_IMAGE_NAME` | `claudio` | Image name |
-| `GITHUB_PAT` | - | Personal access token |
+| `GITHUB_PACKAGE_PAT` | - | Personal access token |
 | `SKIP_IMAGE_BUILD` | `false` | Skip current build (runtime only) |
 
 ### Troubleshooting
 
-**Hook not running:**
+**GitHub Action failed:**
+- Check workflow run at: `https://github.com/<username>/claudio/actions`
+- Verify repository has `write:packages` permission in Settings → Actions → General
+- Check Dockerfile builds locally: `docker build -f .devcontainer/Dockerfile .`
+
+**Pre-push hook not running:**
 - Verify hooks are installed: `ls -la .git/hooks/pre-push`
 - Manually install: `.devcontainer/install-hooks.sh`
 - Check `REGISTRY_ENABLED=true` in `.env`
 
-**Authentication failed:**
+**Authentication failed (pre-push hook):**
 - Verify token has `write:packages` scope
 - Check token hasn't expired
-- Ensure `GITHUB_PAT` is set correctly in `.env`
+- Ensure `GITHUB_PACKAGE_PAT` is set correctly in `.env`
+- Ensure `REGISTRY_USERNAME` matches your GitHub username
 
-**Build failed:**
+**Build failed (both systems):**
 - Check Dockerfile syntax: `docker build -f .devcontainer/Dockerfile .`
 - Review build logs for specific errors
-- Verify Docker daemon is running: `docker ps`
+- For local builds: Verify Docker daemon is running with `docker ps`
 
-**Push failed:**
+**Push failed (pre-push hook):**
 - Check network connectivity to ghcr.io
+- Verify package exists (create with initial manual push)
 - Verify you have permission to push to the repository
-- Review GHCR rate limits (unlikely for personal use)
 
-**Disable for a project:**
+**Disable automated builds:**
 
-Set in `.env`:
+GitHub Actions: Delete or rename `.github/workflows/build-push-image.yml`
+
+Pre-push hook: Set in `.env`:
 ```bash
 REGISTRY_ENABLED=false
 ```
 
-Or remove the hook:
+Or remove the hook entirely:
 ```bash
 rm .git/hooks/pre-push
 ```

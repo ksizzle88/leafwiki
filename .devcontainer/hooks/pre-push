@@ -60,7 +60,7 @@ if [ "${REGISTRY_ENABLED}" != "true" ]; then
 fi
 
 # Validate required environment variables
-REQUIRED_VARS=("REGISTRY_URL" "REGISTRY_USERNAME" "REGISTRY_IMAGE_NAME" "GITHUB_PAT")
+REQUIRED_VARS=("REGISTRY_URL" "REGISTRY_USERNAME" "REGISTRY_IMAGE_NAME" "GITHUB_PACKAGE_PAT")
 MISSING_VARS=()
 
 for var in "${REQUIRED_VARS[@]}"; do
@@ -119,11 +119,11 @@ done
 
 # Login to registry
 log_info "Authenticating with ${REGISTRY_URL}..."
-echo "${GITHUB_PAT}" | docker login "${REGISTRY_URL}" -u "${REGISTRY_USERNAME}" --password-stdin > /dev/null 2>&1
+echo "${GITHUB_PACKAGE_PAT}" | docker login "${REGISTRY_URL}" -u "${REGISTRY_USERNAME}" --password-stdin > /dev/null 2>&1
 
 if [ $? -ne 0 ]; then
     log_error "Failed to authenticate with ${REGISTRY_URL}"
-    log_error "Check your GITHUB_PAT token has 'write:packages' scope"
+    log_error "Check your GITHUB_PACKAGE_PAT token has 'write:packages' scope"
     exit 1
 fi
 
