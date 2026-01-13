@@ -27,6 +27,7 @@ workspace/*
 # Devcontainer local overrides (personal mounts/settings)
 .devcontainer/devcontainer.local.json
 .devcontainer/local-mounts.yml
+.devcontainer/*.local.md
 
 # Docker Compose local overrides (personal volume mounts)
 docker-compose.override.yml

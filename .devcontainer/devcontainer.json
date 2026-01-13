@@ -1,15 +1,16 @@
 {
     "name": "claudio (Claude Code)",
-    "image": "claudio-base:latest",
+    "dockerComposeFile": "../docker-compose.yml",
+    "service": "devcontainer",
     "workspaceFolder": "/workspace",
     "remoteUser": "vscode",
     "features": {
         "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
     },
-    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
     "mounts": [
         "source=claudio-claude-${devcontainerId},target=/home/vscode/.claude,type=volume",
-        "source=claudio-bashhistory-${devcontainerId},target=/commandhistory,type=volume"
+        "source=claudio-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
+        "source=/mnt/c/Users/KeithSchepis/workspaces/apd/DPI_Analytics_DBT,target=/workspace/workspace/DPI_Analytics_DBT,type=bind,consistency=cached"
     ],
     "containerEnv": {
         "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
@@ -20,7 +21,6 @@
             "extensions": [
                 "anthropic.claude-code",
                 "ms-azuretools.vscode-docker",
-                "matthiesen-technology.yaml-with-script"
             ]
         }
     }

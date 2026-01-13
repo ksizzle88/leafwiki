@@ -229,6 +229,52 @@ EOF
 
 ```
 
+### Extending Existing Project Images
+
+Add Claudio capabilities to an existing Docker image using multi-stage builds:
+
+**1. Create `.env` file** (in your workspace project):
+```bash
+DEV_DOCKER_FILE=".devcontainer/Dockerfile.local"
+```
+
+**2. Update workspace's `docker-compose.yml`**:
+```yaml
+services:
+  devcontainer:
+    build:
+      dockerfile: ${DEV_DOCKER_FILE:-Dockerfile}
+```
+
+**3. Create `.devcontainer/Dockerfile.local`** (multi-stage build):
+```dockerfile
+# syntax=docker/dockerfile:1
+FROM claudio-base:latest AS claudio
+FROM your-existing-image:latest
+
+# Copy binaries and configuration from Claudio
+COPY --from=claudio /usr/bin/node /usr/bin/node
+COPY --from=claudio /usr/lib/node_modules /usr/lib/node_modules
+COPY --from=claudio /usr/local/bin/init-claude-settings.sh /usr/local/bin/
+COPY --from=claudio /usr/local/bin/install-claudio.sh /usr/local/bin/
+COPY --from=claudio /opt/claudio-defaults/.claude/ /opt/claudio-defaults/.claude/
+
+# Install Claudio (does everything: symlinks, directories, environment)
+RUN /usr/local/bin/install-claudio.sh
+```
+
+**The install script automatically handles**:
+- Creating npm/npx/claude symlinks
+- Setting up directories with correct permissions
+- Auto-detecting user (root/vscode)
+- Configuring environment variables
+- Verifying installation
+
+**Customize paths if needed**:
+```dockerfile
+RUN PROJECT_CLAUDE=/app/.claude /usr/local/bin/install-claudio.sh
+```
+
 ## Advanced Configuration
 
 ### Resource Limits

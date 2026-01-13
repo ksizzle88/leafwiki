@@ -40,6 +40,10 @@ ENV npm_config_update_notifier=false \
     npm_config_fund=false \
     PYTHONUNBUFFERED=1
 
+# Layer 4.5: Install Claude Code CLI (pinned version for reproducibility)
+ARG CLAUDE_CODE_VERSION=latest
+RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
+
 # Layer 5: Copy initialization scripts (changes occasionally)
 COPY .devcontainer/init-claude-settings.sh /usr/local/bin/init-claude-settings.sh
 RUN chmod +x /usr/local/bin/init-claude-settings.sh
@@ -50,7 +54,4 @@ RUN mkdir -p /home/vscode/.claude /home/vscode/.history \
 
 # Healthcheck: Verify the container is functional
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD node --version && npm --version || exit 1
-
-# Note: Claude Code CLI is installed via postCreateCommand in devcontainer.json
-# This allows faster rebuilds when only Claude Code version changes
+    CMD node --version && npm --version && claude --version || exit 1

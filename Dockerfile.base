@@ -61,9 +61,10 @@ ENV npm_config_update_notifier=false \
 # Layer 5: Claude Code CLI (installed globally)
 RUN npm -g i @anthropic-ai/claude-code
 
-# Layer 6: Claude initialization script
+# Layer 6: Claude initialization scripts
 COPY .devcontainer/init-claude-settings.sh /usr/local/bin/init-claude-settings.sh
-RUN chmod +x /usr/local/bin/init-claude-settings.sh
+COPY .devcontainer/install-claudio.sh /usr/local/bin/install-claudio.sh
+RUN chmod +x /usr/local/bin/init-claude-settings.sh /usr/local/bin/install-claudio.sh
 
 # Layer 7: Shared Claude config (commands, reference docs, settings)
 # These are the defaults that all projects using this base image will have
