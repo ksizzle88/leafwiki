@@ -15,6 +15,7 @@
         "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
     },
     "postCreateCommand": "cd ~ && init-claude-settings.sh && if [ -d /workspace/.claude-dev ]; then cp -r /workspace/.claude-dev/* ~/.claude/; echo 'Claudio-dev commands loaded'; fi && claude --version",
+    "postStartCommand": "/workspace/.devcontainer/install-hooks.sh",
     "customizations": {
         "vscode": {
             "extensions": [

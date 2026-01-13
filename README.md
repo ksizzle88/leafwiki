@@ -275,6 +275,151 @@ RUN /usr/local/bin/install-claudio.sh
 RUN PROJECT_CLAUDE=/app/.claude /usr/local/bin/install-claudio.sh
 ```
 
+## Automated Container Build & Push
+
+Claudio includes an automated build and push system that triggers whenever you push code via git. This ensures your container images stay in sync with your code.
+
+### How It Works
+
+A git pre-push hook automatically:
+1. Builds your Docker image using BuildKit optimizations
+2. Tags it with branch name, commit SHA, and semver (if applicable)
+3. Pushes all tags to GitHub Container Registry (GHCR)
+4. Aborts the git push if build/push fails (preventing mismatches)
+
+### Setup
+
+**1. Create GitHub Personal Access Token:**
+
+Visit [GitHub Token Settings](https://github.com/settings/tokens/new) and create a token with `write:packages` scope.
+
+**2. Configure environment:**
+
+```bash
+# Copy example and edit with your details
+cp .env.example .env
+```
+
+Edit `.env`:
+```bash
+# Enable automated builds
+REGISTRY_ENABLED=true
+
+# Registry configuration
+REGISTRY_URL=ghcr.io
+REGISTRY_USERNAME=your-github-username
+REGISTRY_IMAGE_NAME=claudio
+
+# Your GitHub PAT
+GITHUB_PAT=ghp_your_token_here
+```
+
+**3. Install hooks (automatic):**
+
+Hooks install automatically when the container starts via `postStartCommand`. To manually install:
+
+```bash
+.devcontainer/install-hooks.sh
+```
+
+### Usage
+
+**Normal workflow (builds automatically):**
+
+```bash
+git add .
+git commit -m "feat: add new feature"
+git push origin feature-branch
+
+# Output:
+# [Build] Starting container image build...
+# [Build] Branch: feature-branch
+# [Build] Commit: abc1234
+# [Build] Tags: ghcr.io/user/claudio:feature-branch, :abc1234
+# [Build] Building with BuildKit...
+# [Build] ✓ Build complete (45s)
+# [Build] ✓ Push complete
+```
+
+**Skip build when needed:**
+
+```bash
+# Option 1: Use --no-verify flag
+git push --no-verify origin main
+
+# Option 2: Set environment variable
+SKIP_IMAGE_BUILD=true git push origin main
+```
+
+### Tagging Strategy
+
+Images are automatically tagged based on git context:
+
+| Tag | When | Example |
+|-----|------|---------|
+| `{branch}` | All pushes | `feature-auth`, `main` |
+| `{sha}` | All pushes | `abc1234` |
+| `latest` | main/master only | `latest` |
+| `{version}` | Version tags | `v1.2.3` |
+
+**Example for main branch:**
+```
+ghcr.io/username/claudio:main
+ghcr.io/username/claudio:abc1234
+ghcr.io/username/claudio:latest
+```
+
+**Example for version tag:**
+```
+ghcr.io/username/claudio:v1.2.3
+ghcr.io/username/claudio:abc1234
+```
+
+### Configuration Options
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `REGISTRY_ENABLED` | `false` | Enable/disable automated builds |
+| `REGISTRY_URL` | `ghcr.io` | Registry hostname |
+| `REGISTRY_USERNAME` | - | Your GitHub username |
+| `REGISTRY_IMAGE_NAME` | `claudio` | Image name |
+| `GITHUB_PAT` | - | Personal access token |
+| `SKIP_IMAGE_BUILD` | `false` | Skip current build (runtime only) |
+
+### Troubleshooting
+
+**Hook not running:**
+- Verify hooks are installed: `ls -la .git/hooks/pre-push`
+- Manually install: `.devcontainer/install-hooks.sh`
+- Check `REGISTRY_ENABLED=true` in `.env`
+
+**Authentication failed:**
+- Verify token has `write:packages` scope
+- Check token hasn't expired
+- Ensure `GITHUB_PAT` is set correctly in `.env`
+
+**Build failed:**
+- Check Dockerfile syntax: `docker build -f .devcontainer/Dockerfile .`
+- Review build logs for specific errors
+- Verify Docker daemon is running: `docker ps`
+
+**Push failed:**
+- Check network connectivity to ghcr.io
+- Verify you have permission to push to the repository
+- Review GHCR rate limits (unlikely for personal use)
+
+**Disable for a project:**
+
+Set in `.env`:
+```bash
+REGISTRY_ENABLED=false
+```
+
+Or remove the hook:
+```bash
+rm .git/hooks/pre-push
+```
+
 ## Advanced Configuration
 
 ### Resource Limits
