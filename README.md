@@ -601,6 +601,35 @@ This project implements current best practices from:
 - Environment variables for sensitive data
 - Resource limits prevent DoS
 - Regular dependency updates recommended
+- ✅ Commit signing configured (all commits cryptographically signed)
+- ✅ Trivy vulnerability scanning in CI/CD
+- ✅ Automated image cleanup (removes old container images)
+
+### Branch Protection (GitHub Pro Required for Private Repos)
+
+**Note**: Branch protection rules require either **GitHub Pro** (paid) or a **public repository** (free). For private repositories without GitHub Pro, you can still follow security best practices manually.
+
+**Recommended Protection Rules** (when available):
+
+For `main`, `master`, `develop`, and `stage` branches:
+- Require pull request reviews (minimum 1 approval)
+- Require status checks to pass: `build-and-push`, `Test container`
+- Require signed commits (✅ already configured)
+- Block force pushes
+- Require conversation resolution before merging
+
+**Manual Setup** (GitHub Pro or Public Repo):
+1. Go to: Settings → Branches → Add branch protection rule
+2. Branch pattern: `main` (repeat for other protected branches)
+3. Enable the settings listed above
+
+**Without GitHub Pro**:
+- Use feature branches and create pull requests manually
+- Review code before merging via GitHub's PR interface
+- Manually verify CI tests pass before merging
+- Never force push to main/master/develop/stage branches
+
+See [`.claude/reference/github-cicd-best-practices.md`](.claude/reference/github-cicd-best-practices.md) for complete security setup guide.
 
 ### Recommended Tools
 
