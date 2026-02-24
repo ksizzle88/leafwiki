@@ -22,7 +22,8 @@
     },
     // Initialization (runs after container start)
     "postCreateCommand": "init-claudio",
-    "postStartCommand": "sudo /usr/local/bin/init-firewall.sh 2>/dev/null || true",
+    // Optional: enable network firewall (set CLAUDIO_FIREWALL=true in .env)
+    "postStartCommand": "[ \"${CLAUDIO_FIREWALL:-false}\" = \"true\" ] && sudo /usr/local/bin/init-firewall.sh || true",
     // VS Code customizations
     "customizations": {
         "vscode": {
