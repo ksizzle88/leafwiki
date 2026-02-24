@@ -1,0 +1,17 @@
+# docker-compose.override.yml - Add Claudio to existing project
+#
+# This file extends your existing docker-compose.yml to add Claudio capabilities
+
+services:
+  app:  # Change to match your service name
+    # Extend from Claudio base image
+    build:
+      dockerfile: Dockerfile.local
+
+    environment:
+      - CLAUDE_CONFIG_DIR=/home/dev/.claude
+      - CLAUDIO_HOME=/home/dev/.claudio
+      - SHELL=/bin/zsh
+
+    # Keep container running for devcontainer
+    command: sleep infinity

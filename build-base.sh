@@ -2,13 +2,18 @@
 # Build the claudio-base Docker image
 #
 # Usage:
-#   ./build-base.sh                       # Builds claudio-base:<current-branch>
-#   ./build-base.sh --tags latest         # Builds claudio-base:latest
-#   ./build-base.sh --tags latest v1.0.0  # Builds with primary tag 'latest' and additional tag 'v1.0.0'
+#   ./build-base.sh                                    # Builds claudio-base:<current-branch>
+#   ./build-base.sh --tags latest                      # Builds claudio-base:latest
+#   ./build-base.sh --tags latest v1.0.0               # Builds with multiple tags
+#   ./build-base.sh --push                             # Builds and pushes to ghcr.io/ksizzle88/claudio
+#   ./build-base.sh --tags latest v1.0.0 --push        # Builds with tags and pushes to registry
+#   ./build-base.sh --push --registry custom.io/repo   # Push to custom registry
 #
 # Loads git configuration from .env file (if present):
 #   GIT_USER_EMAIL=your.email@example.com
 #   GIT_USER_NAME=Your Name
+#   REGISTRY_URL=ghcr.io/ksizzle88/claudio  # Default registry (optional)
+#   GHCR_TOKEN=ghp_your_token_here          # For registry authentication (optional)
 
 set -e
 
@@ -19,6 +24,9 @@ NC='\033[0m'
 
 # Parse arguments
 TAG_ARRAY=()
+PUSH_TO_REGISTRY=false
+REGISTRY_URL="${REGISTRY_URL:-ghcr.io/ksizzle88/claudio}"
+
 while [[ $# -gt 0 ]]; do
     case $1 in
         --tags)
@@ -29,9 +37,17 @@ while [[ $# -gt 0 ]]; do
                 shift
             done
             ;;
+        --push)
+            PUSH_TO_REGISTRY=true
+            shift
+            ;;
+        --registry)
+            REGISTRY_URL="$2"
+            shift 2
+            ;;
         *)
             echo -e "${RED}Unknown argument: $1${NC}"
-            echo "Usage: $0 [--tags TAG1 [TAG2 ...]]"
+            echo "Usage: $0 [--tags TAG1 [TAG2 ...]] [--push] [--registry REGISTRY_URL]"
             exit 1
             ;;
     esac
@@ -69,24 +85,55 @@ if [ -n "$GIT_USER_NAME" ]; then
     echo "  GIT_USER_NAME: $GIT_USER_NAME"
 fi
 
-# Build the image with the first tag
+# If pushing to registry, authenticate first
+if [ "$PUSH_TO_REGISTRY" = true ]; then
+    echo ""
+    echo "Authenticating with registry..."
+
+    # Try GHCR_TOKEN, then GITHUB_PACKAGE_PAT, then gh auth token
+    REGISTRY_TOKEN="${GHCR_TOKEN:-${GITHUB_PACKAGE_PAT:-}}"
+    if [ -n "$REGISTRY_TOKEN" ]; then
+        echo "$REGISTRY_TOKEN" | docker login ghcr.io -u ksizzle88 --password-stdin
+    elif command -v gh >/dev/null 2>&1; then
+        gh auth token | docker login ghcr.io -u ksizzle88 --password-stdin
+    else
+        echo -e "${RED}Error: No authentication method available${NC}"
+        echo "Set GHCR_TOKEN environment variable or authenticate with 'gh auth login'"
+        exit 1
+    fi
+    echo ""
+fi
+
+# Build with both local and registry tags
 PRIMARY_TAG="${TAG_ARRAY[0]}"
+BUILD_TAGS=()
+for tag in "${TAG_ARRAY[@]}"; do
+    BUILD_TAGS+=("-t" "claudio-base:$tag")
+    if [ "$PUSH_TO_REGISTRY" = true ]; then
+        BUILD_TAGS+=("-t" "$REGISTRY_URL:$tag")
+    fi
+done
+
 docker build \
     -f Dockerfile.base \
-    -t "claudio-base:$PRIMARY_TAG" \
-    --build-arg NODE_VERSION=20 \
+    "${BUILD_TAGS[@]}" \
+    --build-arg NODE_VERSION="${NODE_VERSION:-22}" \
+    --build-arg ZSH_IN_DOCKER_VERSION="${ZSH_IN_DOCKER_VERSION:-1.2.0}" \
     --build-arg GIT_USER_EMAIL="${GIT_USER_EMAIL:-}" \
     --build-arg GIT_USER_NAME="${GIT_USER_NAME:-}" \
+    --build-arg GIT_GPG_SIGN="${GIT_GPG_SIGN:-false}" \
+    --build-arg GIT_SIGNING_KEY="${GIT_SIGNING_KEY:-}" \
     .
 
-# Tag with additional tags if specified
-if [ ${#TAG_ARRAY[@]} -gt 1 ]; then
+# Push to registry if requested
+if [ "$PUSH_TO_REGISTRY" = true ]; then
     echo ""
-    echo "Creating additional tags..."
-    for tag in "${TAG_ARRAY[@]:1}"; do
-        echo "  Tagging as claudio-base:$tag"
-        docker tag "claudio-base:$PRIMARY_TAG" "claudio-base:$tag"
+    echo "Pushing to registry..."
+    for tag in "${TAG_ARRAY[@]}"; do
+        echo "  Pushing $REGISTRY_URL:$tag"
+        docker push "$REGISTRY_URL:$tag"
     done
+    echo ""
 fi
 
 echo ""
@@ -95,10 +142,23 @@ echo ""
 echo "Image tags:"
 for tag in "${TAG_ARRAY[@]}"; do
     echo "  - claudio-base:$tag"
+    if [ "$PUSH_TO_REGISTRY" = true ]; then
+        echo "  - $REGISTRY_URL:$tag"
+    fi
 done
 echo ""
+
+if [ "$PUSH_TO_REGISTRY" = true ]; then
+    echo -e "${GREEN}Push complete!${NC}"
+    echo ""
+    echo "All external repos can now use:"
+    echo "  \"image\": \"$REGISTRY_URL:${TAG_ARRAY[0]}\""
+    echo ""
+fi
+
 echo "Verify with:"
 echo "  docker run --rm claudio-base:$PRIMARY_TAG claude --version"
+echo "  docker run --rm claudio-base:$PRIMARY_TAG codex --version"
 echo "  docker run --rm claudio-base:$PRIMARY_TAG python --version"
 echo "  docker run --rm claudio-base:$PRIMARY_TAG node --version"
 echo "  docker run --rm claudio-base:$PRIMARY_TAG gh --version"

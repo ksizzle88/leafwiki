@@ -1,0 +1,41 @@
+# syntax=docker/dockerfile:1
+# Local Dockerfile extending Claudio base with project-specific dependencies
+# This file is gitignored - do not commit to repository
+
+# Use published Claudio image from GitHub Container Registry
+FROM ghcr.io/ksizzle88/claudio:latest
+
+# If you're actively developing Claudio itself, use local build:
+# FROM claudio-base:latest
+
+USER root
+
+# Install project-specific dependencies
+# Example: Terraform, AWS CLI, etc.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+    # Add your packages here
+    curl \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Example: Install Terraform
+# ARG TERRAFORM_VERSION=1.10.0
+# RUN curl -fsSL https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip -o terraform.zip && \
+#     unzip terraform.zip && \
+#     mv terraform /usr/local/bin/ && \
+#     rm terraform.zip && \
+#     chmod +x /usr/local/bin/terraform
+
+# Switch back to vscode user (or root if your project requires)
+USER vscode
+
+WORKDIR /workspace
+
+# Project-specific environment variables
+ENV PROJECT_NAME=my-project
+
+# Healthcheck (optional)
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD claude --version || exit 1

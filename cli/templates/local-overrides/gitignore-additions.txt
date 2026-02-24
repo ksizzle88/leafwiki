@@ -1,0 +1,18 @@
+# Claudio Local Configuration
+# Add these lines to your project's .gitignore
+
+# Devcontainer local overrides
+.devcontainer/devcontainer.local.json
+.devcontainer/*.local.*
+.devcontainer/Dockerfile.local
+
+# Docker Compose local overrides
+docker-compose.override.yml
+
+# Claude local settings
+.claude/settings.local.json
+.claude/*.local.md
+
+# Environment files
+.env
+.env.local

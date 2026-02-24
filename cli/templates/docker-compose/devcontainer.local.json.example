@@ -1,0 +1,29 @@
+{
+    "name": "My Project (with Claudio)",
+    "dockerComposeFile": ["docker-compose.yml", "docker-compose.override.yml"],
+    "service": "app",
+    "workspaceFolder": "/workspace",
+    "remoteUser": "dev",
+
+    // Per-container volumes for isolation
+    "mounts": [
+        "source=claudio-${devcontainerId},target=/home/dev/.claudio,type=volume",
+        "source=claudio-history-${devcontainerId},target=/commandhistory,type=volume",
+        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/dev/.ssh-host,type=bind,readonly",
+        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.gnupg,target=/home/dev/.gnupg-host,type=bind,readonly"
+    ],
+
+    "remoteEnv": {
+        "SSH_AUTH_SOCK": "${localEnv:SSH_AUTH_SOCK}"
+    },
+
+    "postCreateCommand": "init-claudio",
+
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "anthropic.claude-code"
+            ]
+        }
+    }
+}

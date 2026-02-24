@@ -1,0 +1,95 @@
+#!/bin/bash
+# claudio - Main CLI entry point for Claudio development environment
+#
+# Usage: claudio <command> [options]
+#
+# Commands:
+#   verify   - Verify Claudio setup and configuration
+#   version  - Show version information
+#   doctor   - Diagnose common issues and suggest fixes
+#   help     - Show help for commands
+#
+# Run 'claudio help' for more information.
+
+set -euo pipefail
+
+# Get script directory (resolve symlinks)
+readonly SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+
+# Source common libraries
+# shellcheck source=lib/common.sh
+source "${SCRIPT_DIR}/lib/common.sh"
+# shellcheck source=lib/output.sh
+source "${SCRIPT_DIR}/lib/output.sh"
+
+#######################################
+# Main entry point
+# Arguments:
+#   Command and its arguments
+# Returns:
+#   Exit code from subcommand
+#######################################
+main() {
+    local command="${1:-}"
+
+    # No command provided - show help
+    if [[ -z "${command}" ]]; then
+        # shellcheck source=commands/help.sh
+        source "${SCRIPT_DIR}/commands/help.sh"
+        cmd_help
+        exit 0
+    fi
+
+    # Handle help flag at top level
+    if [[ "${command}" == "-h" ]] || [[ "${command}" == "--help" ]]; then
+        # shellcheck source=commands/help.sh
+        source "${SCRIPT_DIR}/commands/help.sh"
+        cmd_help
+        exit 0
+    fi
+
+    # Handle version flag at top level
+    if [[ "${command}" == "-v" ]] || [[ "${command}" == "--version" ]]; then
+        # shellcheck source=commands/version.sh
+        source "${SCRIPT_DIR}/commands/version.sh"
+        shift
+        cmd_version "$@"
+        exit $?
+    fi
+
+    # Route to subcommand
+    case "${command}" in
+        verify)
+            # shellcheck source=commands/verify.sh
+            source "${SCRIPT_DIR}/commands/verify.sh"
+            shift
+            cmd_verify "$@"
+            ;;
+        version)
+            # shellcheck source=commands/version.sh
+            source "${SCRIPT_DIR}/commands/version.sh"
+            shift
+            cmd_version "$@"
+            ;;
+        doctor)
+            # shellcheck source=commands/doctor.sh
+            source "${SCRIPT_DIR}/commands/doctor.sh"
+            shift
+            cmd_doctor "$@"
+            ;;
+        help)
+            # shellcheck source=commands/help.sh
+            source "${SCRIPT_DIR}/commands/help.sh"
+            shift
+            cmd_help "$@"
+            ;;
+        *)
+            error "Unknown command: ${command}"
+            echo "" >&2
+            echo "Run 'claudio help' for usage information." >&2
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

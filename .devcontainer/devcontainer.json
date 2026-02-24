@@ -1,26 +1,39 @@
 {
-    "name": "claudio (Claude Code)",
+    "name": "Claudio v2.1",
     "dockerComposeFile": "../docker-compose.yml",
     "service": "devcontainer",
     "workspaceFolder": "/workspace",
-    "remoteUser": "vscode",
+    "remoteUser": "dev",
+    // Docker-outside-of-docker for container management
     "features": {
         "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
     },
+    // Per-container volumes (override standalone volumes)
+    // These use ${devcontainerId} which only works in devcontainer.json
     "mounts": [
-        "source=claudio-claude-${devcontainerId},target=/home/vscode/.claude,type=volume",
-        "source=claudio-bashhistory-${devcontainerId},target=/commandhistory,type=volume"
+        "source=claudio-${devcontainerId},target=/home/dev/.claudio,type=volume",
+        "source=claudio-history-${devcontainerId},target=/commandhistory,type=volume",
+        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/dev/.ssh-host,type=bind,readonly",
+        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.gnupg,target=/home/dev/.gnupg-host,type=bind,readonly"
     ],
-    "containerEnv": {
-        "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+    // SSH agent forwarding from host
+    "remoteEnv": {
+        "SSH_AUTH_SOCK": "${localEnv:SSH_AUTH_SOCK}"
     },
-    "postCreateCommand": "cd ~ && init-claude-settings.sh && if [ -d /workspace/.claude-dev ]; then cp -r /workspace/.claude-dev/* ~/.claude/; echo 'Claudio-dev commands loaded'; fi && claude --version",
-    "postStartCommand": "/workspace/.devcontainer/install-hooks.sh",
+    // Initialization (runs after container start)
+    "postCreateCommand": "init-claudio",
+    "postStartCommand": "sudo /usr/local/bin/init-firewall.sh 2>/dev/null || true",
+    // VS Code customizations
     "customizations": {
         "vscode": {
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "zsh",
+                "editor.formatOnSave": true
+            },
             "extensions": [
                 "anthropic.claude-code",
                 "ms-azuretools.vscode-docker",
+                "eamodio.gitlens"
             ]
         }
     }

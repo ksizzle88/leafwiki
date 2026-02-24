@@ -1,0 +1,20 @@
+# syntax=docker/dockerfile:1
+# Local Dockerfile for docker-compose projects
+# This file is gitignored - do not commit to repository
+
+FROM ghcr.io/ksizzle88/claudio:latest
+
+# If developing Claudio itself, use local build:
+# FROM claudio-base:latest
+
+USER root
+
+# Install project-specific dependencies
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+    # Add your packages
+    && rm -rf /var/lib/apt/lists/*
+
+USER vscode
+WORKDIR /workspace

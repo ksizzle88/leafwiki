@@ -1,43 +1,69 @@
-version: '3.8'
+# Claudio v2.1 - Docker Compose Configuration
+#
+# Two services:
+# - claudio-standalone: Full standalone service (CI/CD, testing, non-VS Code use)
+# - devcontainer: VS Code attaches here (extends standalone)
 
 services:
-  devcontainer:
+  # Base service - standalone capable, all runtime config here
+  claudio-standalone:
     build:
       context: .
       dockerfile: Dockerfile.base
       args:
-        NODE_VERSION: 20
+        DEV_USER: ${DEV_USER:-dev}
+        DEV_UID: ${DEV_UID:-1000}
+        DEV_GID: ${DEV_GID:-1000}
+        DEV_PASSWORD: ${DEV_PASSWORD:-dev}
+        NODE_VERSION: 22
+        ZSH_IN_DOCKER_VERSION: 1.2.0
         GIT_USER_EMAIL: ${GIT_USER_EMAIL:-}
         GIT_USER_NAME: ${GIT_USER_NAME:-}
-    # NOTE: Avoid `container_name:` so multiple Compose projects can run side-by-side
-    # (use `docker compose -p <name>` or `COMPOSE_PROJECT_NAME=<name>`).
-    image: ${COMPOSE_PROJECT_NAME:-claudio}-devcontainer:latest
+        GIT_GPG_SIGN: ${GIT_GPG_SIGN:-false}
+        GIT_SIGNING_KEY: ${GIT_SIGNING_KEY:-}
+    image: ${COMPOSE_PROJECT_NAME:-claudio}-base:${TAG:-develop}
     hostname: claudio
 
+    # Security capabilities for firewall
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
     volumes:
-    # Bind mount the workspace (cached for better performance on macOS/Windows)
-    - .:/workspace:cached
-    # Named volume for shell history
-    - shell-history:/home/vscode/.history
+      # Workspace bind mount
+      - .:/workspace:cached
+      # Shared volume (auth, plugins, caches)
+      - claudio-shared:/home/dev/.claudio-shared
+      # Standalone-specific volumes (not used when VS Code overrides)
+      - claudio-standalone:/home/dev/.claudio
+      - commandhistory-standalone:/commandhistory
 
     environment:
-    - TZ=${TZ:-UTC}
-    - LANG=C.UTF-8
-    - LC_ALL=C.UTF-8
-    # Claude config handled via devcontainer.json mounts with ${devcontainerId}
+      # Claudio paths
+      CLAUDE_CONFIG_DIR: /home/dev/.claude
+      CLAUDIO_HOME: /home/dev/.claudio
+      CLAUDIO_SHARED: /home/dev/.claudio-shared
+      # Shell
+      SHELL: /bin/zsh
+      EDITOR: nano
+      # Locale
+      TZ: ${TZ:-UTC}
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
 
-    # Keep container running
-    command: sleep infinity
+    # Initialize and keep running
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["init-claudio && exec sleep infinity"]
 
-    # Healthcheck to ensure container is functional
+    # Healthcheck
     healthcheck:
-      test: [ "CMD", "node", "--version" ]
+      test: ["CMD", "sh", "-c", "which claude && which codex"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
 
-    # Resource limits (adjust based on your needs)
+    # Resource limits
     deploy:
       resources:
         limits:
@@ -47,52 +73,64 @@ services:
           cpus: '1.0'
           memory: 2G
 
-    # Labels for metadata and organization
+    # Labels
     labels:
       com.claudio.description: "Claude Code development container"
-      com.claudio.service: "devcontainer"
-      com.claudio.version: "1.0.0"
+      com.claudio.service: "standalone"
+      com.claudio.version: "2.1.0"
       com.claudio.project: "claudio"
 
-    # Network for shared services
+    # Network
     networks:
-    - dev-network
+      - dev-network
 
     # Restart policy
     restart: unless-stopped
-  # Example shared services (commented out - uncomment as needed)
 
-  # postgres:
-  #   image: postgres:16-alpine
-  #   environment:
-  #     POSTGRES_USER: dev
-  #     POSTGRES_PASSWORD: dev
-  #     POSTGRES_DB: dev_db
-  #   volumes:
-  #     - postgres-data:/var/lib/postgresql/data
-  #   networks:
-  #     - dev-network
-  #   ports:
-  #     - "5432:5432"
+  # VS Code devcontainer - extends standalone
+  # devcontainer.json adds: per-container volumes, SSH/GPG mounts, features
+  devcontainer:
+    extends:
+      service: claudio-standalone
+    volumes:
+      - /home/kschepis/workspaces/mpulse:/workspace/mpulse:cached
+    labels:
+      com.claudio.service: "devcontainer"
 
-  # redis:
-  #   image: redis:7-alpine
-  #   volumes:
-  #     - redis-data:/data
-  #   networks:
-  #     - dev-network
-  #   ports:
-  #     - "6379:6379"
+  # Test service for developing the devcontainer itself
+  # Usage:
+  #   docker compose build devcontainer-test
+  #   docker compose up -d devcontainer-test
+  #   docker compose exec devcontainer-test zsh
+  #   # Test your changes, then swap in devcontainer.json: "service": "devcontainer-test"
+  devcontainer-test:
+    extends:
+      service: claudio-standalone
+    volumes:
+      - .:/workspace:cached
+      - claudio-shared:/home/dev/.claudio-shared
+      - claudio-test:/home/dev/.claudio
+      - commandhistory-test:/commandhistory
+    labels:
+      com.claudio.service: "devcontainer-test"
 
 volumes:
-  # Persistent volume for shell history
-  shell-history:
-    # Note: Claude settings now use per-container volumes via devcontainer.json mounts
-    # (claudio-claude-config-${devcontainerId})
-    # Uncomment if using postgres
-    # postgres-data:
-    # Uncomment if using redis
-    # redis-data:
+  # Shared volume for auth, plugins, caches (external - create with create-volumes.sh)
+  claudio-shared:
+    external: true
+    name: claudio-shared
+
+  # Standalone service volumes (used when running without VS Code)
+  claudio-standalone:
+  commandhistory-standalone:
+
+  # Test service volumes (for developing the devcontainer)
+  claudio-test:
+  commandhistory-test:
+
+  # Note: Per-container volumes are created via devcontainer.json:
+  # - claudio-${devcontainerId} (per-container state)
+  # - claudio-history-${devcontainerId} (per-container shell history)
 
 networks:
   dev-network:

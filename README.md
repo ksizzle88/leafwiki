@@ -72,6 +72,71 @@ claude setup-token
 
 ```
 
+## Building and Publishing the Claudio Base Image
+
+If you're maintaining the Claudio base image or customizing it for your organization:
+
+### 1. Create Shared Volumes
+
+First-time setup requires creating shared volumes that enable authentication and plugin portability across all Claudio containers:
+
+```bash
+./cli/scripts/create-volumes.sh
+```
+
+This creates volumes for:
+- Claude authentication sync
+- GitHub CLI auth sync
+- Git configuration sync
+- Claude plugins (skills/commands)
+- MCP server configurations
+- Shell history
+
+### 2. Build and Publish
+
+**Local build only** (for testing):
+```bash
+./build-base.sh
+```
+
+**Build and push to registry** (make available to all repos):
+```bash
+./build-base.sh --push
+```
+
+**Build with specific tags and push**:
+```bash
+./build-base.sh --tags latest v1.0.0 --push
+```
+
+The published image is available at `ghcr.io/ksizzle88/claudio:latest` and can be used in external repositories without local builds.
+
+### 3. Verify Setup
+
+After building or when troubleshooting, run the verification:
+
+```bash
+claudio verify
+```
+
+This checks:
+- Claude CLI installation and authentication
+- Git and GitHub CLI configuration
+- Volume mounts (shared and per-container)
+- Node.js, Python, and other tools
+- SSH agent and host bind mounts
+
+### Using Claudio in External Repositories
+
+See `cli/templates/` for integration templates (or `/usr/local/lib/claudio/templates/` inside containers). All external repos should use the published image `ghcr.io/ksizzle88/claudio:latest`.
+
+Integration is done via **local, gitignored files only**:
+- `Dockerfile.local` - Extends Claudio with project-specific dependencies
+- `devcontainer.local.json` - Adds Claudio volume mounts and configuration
+- `docker-compose.override.yml` - For docker-compose projects
+
+These files are never committed to version control, keeping external repositories clean while enabling Claudio integration.
+
 ## Running Side-by-Side (Sandbox Testing)
 
 This repo uses Docker Compose for the devcontainer. To test changes without disrupting your currently-running VS Code devcontainer, run Compose under a different **project name**.
@@ -151,6 +216,46 @@ Claude Code reads configuration in this order (highest precedence first):
 
 - **OAuth (Recommended)**: Log in via browser when prompted by VS Code extension
 - **Long-lived Token**: Run `claude setup-token` in terminal for API token authentication
+
+### Plugin Portability
+
+Claudio automatically syncs Claude Code plugins, MCP servers, and custom configurations across all containers using shared volumes.
+
+**Create shared volumes** (one-time setup):
+
+```bash
+docker volume create claudio-shared-auth      # Shared authentication
+docker volume create claudio-gh-auth          # Shared GitHub CLI auth
+docker volume create claudio-shared-plugins   # Shared skills/commands
+docker volume create claudio-shared-mcp       # Shared MCP servers
+```
+
+**What gets shared automatically**:
+- MCP server configurations (`mcp.json`)
+- Custom Claude Code skills and commands
+- Authentication credentials (single login works everywhere)
+- GitHub CLI authentication
+
+**Example**: Install an MCP server in one container, it's automatically available in all others:
+
+```bash
+# In any Claudio container
+npm install -g @anthropic/mcp-server-filesystem
+
+# Configure MCP server
+cat > ~/.claude/mcp.json <<EOF
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "mcp-server-filesystem",
+      "args": ["--root", "/workspace"]
+    }
+  }
+}
+EOF
+
+# All other Claudio containers automatically get this config on next start!
+```
 
 ## Working with Projects
 
