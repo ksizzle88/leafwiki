@@ -20,10 +20,7 @@
     "remoteEnv": {
         "SSH_AUTH_SOCK": "${localEnv:SSH_AUTH_SOCK}"
     },
-    // Initialization (runs after container start)
-    "postCreateCommand": "init-claudio",
-    // Optional: enable network firewall (set CLAUDIO_FIREWALL=true in .env)
-    "postStartCommand": "[ \"${CLAUDIO_FIREWALL:-false}\" = \"true\" ] && sudo /usr/local/bin/init-firewall.sh || true",
+    // Note: init-claudio and firewall init are handled by docker-entrypoint.sh
     // VS Code customizations
     "customizations": {
         "vscode": {

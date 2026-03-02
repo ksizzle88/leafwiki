@@ -51,9 +51,7 @@ services:
       LANG: C.UTF-8
       LC_ALL: C.UTF-8
 
-    # Initialize and keep running
-    entrypoint: ["/bin/sh", "-c"]
-    command: ["init-claudio && exec sleep infinity"]
+    # Entrypoint from Dockerfile handles: permission fixes, init-claudio, sleep infinity
 
     # Healthcheck
     healthcheck:

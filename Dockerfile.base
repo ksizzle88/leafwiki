@@ -144,14 +144,16 @@ RUN chmod +x /usr/local/lib/claudio/claudio 2>/dev/null || true \
     && chmod +x /usr/local/lib/claudio/scripts/*.sh 2>/dev/null || true \
     && ln -sf /usr/local/lib/claudio/claudio /usr/local/bin/claudio
 
-# Layer 11: Initialization scripts
+# Layer 11: Initialization scripts and entrypoint
 COPY .devcontainer/init-claude-settings.sh /usr/local/bin/init-claude-settings.sh
 COPY .devcontainer/install-claudio.sh /usr/local/bin/install-claudio.sh
 COPY .devcontainer/init-firewall.sh /usr/local/bin/init-firewall.sh
+COPY .devcontainer/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY cli/scripts/init-claudio.sh /usr/local/bin/init-claudio
 RUN chmod +x /usr/local/bin/init-claude-settings.sh \
     && chmod +x /usr/local/bin/install-claudio.sh \
     && chmod +x /usr/local/bin/init-firewall.sh \
+    && chmod +x /usr/local/bin/docker-entrypoint.sh \
     && chmod +x /usr/local/bin/init-claudio
 
 # Layer 12: Sudoers for firewall (passwordless)
@@ -168,11 +170,8 @@ RUN chmod +x /opt/claudio-defaults/.claude/statusline.sh 2>/dev/null || true \
 RUN mkdir -p ${DEV_HOME}/.claude ${DEV_HOME}/.claudio ${DEV_HOME}/.history \
     && chown -R ${DEV_USER}:${DEV_USER} ${DEV_HOME}/.claude ${DEV_HOME}/.claudio ${DEV_HOME}/.history
 
-# Switch to dev user for git config
-USER ${DEV_USER}
-WORKDIR ${DEV_HOME}
-
 # Layer 15: Git configuration (as dev user)
+USER ${DEV_USER}
 RUN git config --global init.defaultBranch main \
     && git config --global push.autoSetupRemote true \
     && git config --global --add safe.directory /workspace \
@@ -182,6 +181,12 @@ RUN git config --global init.defaultBranch main \
     && git config --global commit.gpgsign "$GIT_GPG_SIGN" \
     && git config --global tag.gpgsign "$GIT_GPG_SIGN" \
     && if [ -n "$GIT_SIGNING_KEY" ]; then git config --global user.signingkey "$GIT_SIGNING_KEY"; fi
+USER root
+
+# Runtime configuration
+# Entrypoint runs as root to fix volume permissions, then drops to dev user
+WORKDIR ${DEV_HOME}
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

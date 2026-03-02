@@ -89,18 +89,13 @@ RUN echo 'eval "$(direnv hook zsh)"' >> /etc/zsh/zshrc \
     && echo 'if [ -z "$SSH_AUTH_SOCK" ] && [ -d ~/.ssh ]; then eval "$(ssh-agent -s)" > /dev/null 2>&1 && find ~/.ssh -name "id_*" ! -name "*.pub" -exec ssh-add {} \; 2>/dev/null; fi' >> /etc/zsh/zshrc
 
 # Create directories for volume mounts with proper ownership
+# (base entrypoint fixes ownership at runtime, but these are needed during build)
 RUN mkdir -p /home/dev/.config /home/dev/.local /home/dev/.cache \
     && chown -R ${DEV_USER}:${DEV_USER} /home/dev/.config /home/dev/.local /home/dev/.cache
 
-# Copy and setup entrypoint script
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-# Set working directory (entrypoint will run as root, then drop to dev user)
-WORKDIR /home/dev
-
-# Entrypoint handles permission fixes and drops to dev user
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+# Entrypoint and WORKDIR inherited from base image (docker-entrypoint.sh)
+# The base entrypoint handles: volume permission fixes, SSH key copy, firewall init,
+# dropping privileges to dev user, and running init-claudio.
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD claude --version && dbt --version || exit 1
