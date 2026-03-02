@@ -1,0 +1,11 @@
+# Cloned project repos (separate git repositories)
+DPI_Analytics_DBT/
+data-pipelines/
+hxi-data-pipelines/
+hxi-infra/
+public-powershell/
+python-scripts/
+
+# Environment files with secrets
+.devcontainer/.env
+.devcontainer/.env.local

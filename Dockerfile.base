@@ -132,6 +132,7 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
     -a "export HISTFILE=/commandhistory/.zsh_history" \
     -a "export HISTSIZE=10000" \
     -a "export SAVEHIST=10000" \
+    -a "export CLAUDE_CODE_TASK_LIST_ID=main" \
     -x
 USER root
 
@@ -158,9 +159,10 @@ RUN echo "${DEV_USER} ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" \
     > /etc/sudoers.d/${DEV_USER}-firewall \
     && chmod 0440 /etc/sudoers.d/${DEV_USER}-firewall
 
-# Layer 13: Shared Claude config defaults
+# Layer 13: Shared Claude config defaults (includes statusline.sh)
 COPY .claude/ /opt/claudio-defaults/.claude/
-RUN chown -R ${DEV_USER}:${DEV_USER} /opt/claudio-defaults/
+RUN chmod +x /opt/claudio-defaults/.claude/statusline.sh 2>/dev/null || true \
+    && chown -R ${DEV_USER}:${DEV_USER} /opt/claudio-defaults/
 
 # Layer 14: User directory setup
 RUN mkdir -p ${DEV_HOME}/.claude ${DEV_HOME}/.claudio ${DEV_HOME}/.history \

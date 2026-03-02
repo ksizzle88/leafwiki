@@ -1,0 +1,105 @@
+# mpulse devcontainer - Docker Compose
+# Projects: DPI_Analytics_DBT, hxi-infra, data-pipelines/snowflake-export
+
+services:
+  devcontainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        CLAUDIO_TAG: ${CLAUDIO_TAG:-latest}
+    image: mpulse-claudio:latest
+    hostname: mpulse
+
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+    volumes:
+      # mpulse root as workspace
+      - ..:/workspace:cached
+      # Docker socket (docker-outside-of-docker)
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Config files from host (Windows configs via WSL)
+      - ${CONFIG_HOME:-$HOME}/.aws:/home/dev/.aws
+      - ${CONFIG_HOME:-$HOME}/.snowflake:/home/dev/.snowflake
+      - ${CONFIG_HOME:-$HOME}/.ssh:/home/dev/.ssh-host:ro
+      # Shared Claudio auth/plugins volume
+      - claudio-shared:/home/dev/.claudio-shared
+      # Claude config and shell history
+      - mpulse-claudio:/home/dev/.claudio
+      - mpulse-history:/commandhistory
+      # Persist container settings and configs
+      - mpulse-config:/home/dev/.config
+      - mpulse-local:/home/dev/.local
+      - mpulse-cache:/home/dev/.cache
+
+    environment:
+      # Claudio paths
+      CLAUDIO_HOME: /home/dev/.claudio
+      CLAUDIO_SHARED: /home/dev/.claudio-shared
+      CLAUDE_CONFIG_DIR: /home/dev/.claude
+      # SSH (keys mounted directly, no agent forwarding)
+      SSH_AUTH_SOCK: ${SSH_AUTH_SOCK:-}
+      # Shell
+      SHELL: /bin/zsh
+      EDITOR: nano
+      # Locale / timezone
+      TZ: ${TZ:-America/New_York}
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+      # dbt profile location
+      DBT_PROFILES_DIR: /workspace/DPI_Analytics_DBT/dbt-profiles
+      # Snowflake (values come from .env)
+      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT:-}
+      SNOWFLAKE_USER: ${SNOWFLAKE_USER:-}
+      SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD:-}
+      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE:-}
+      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE:-}
+      SNOWFLAKE_SCHEMA: ${SNOWFLAKE_SCHEMA:-}
+      SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE:-}
+      # AWS
+
+    env_file:
+      - path: .env
+        required: false
+
+    healthcheck:
+      test: ["CMD", "sh", "-c", "which claude && dbt --version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
+
+    labels:
+      com.claudio.description: "mpulse data engineering devcontainer"
+      com.claudio.project: "mpulse"
+      com.claudio.version: "1.0.0"
+
+    networks:
+      - dev-network
+
+    restart: unless-stopped
+
+volumes:
+  claudio-shared:
+    external: true
+    name: claudio-shared
+  mpulse-claudio:
+  mpulse-history:
+  mpulse-config:
+  mpulse-local:
+  mpulse-cache:
+
+networks:
+  dev-network:
+    driver: bridge

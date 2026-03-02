@@ -1,4 +1,8 @@
 {
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline.sh"
+  },
   "permissions": {
     "allow": [
       "Bash(git:*)",
@@ -9,6 +13,5 @@
       "Bash(find:*)",
       "Bash(REGISTRY_ENABLED=false /workspace/.git/hooks/pre-push)"
     ]
-  },
-  "model": "claude-sonnet-4-5-20250929"
+  }
 }

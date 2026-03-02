@@ -1,0 +1,40 @@
+{
+    "name": "mpulse (Claudio)",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "devcontainer",
+    "workspaceFolder": "/workspace",
+    "remoteUser": "dev",
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "zsh",
+                "editor.formatOnSave": true,
+                "python.defaultInterpreterPath": "/opt/mpulse-venv/bin/python",
+                "editor.rulers": [
+                    120
+                ],
+                "[sql]": {
+                    "editor.defaultFormatter": "dorzey.vscode-sqlfluff"
+                },
+                "dbt.queryLimit": 500,
+                "dbt.queryTemplate": "select * from ({query}) as query limit {limit}",
+                "snowflake.connectionsConfigFile": "/home/dev/.snowflake/connections.toml"
+            },
+            "extensions": [
+                "anthropic.claude-code",
+                "ms-python.python",
+                "ms-python.pylance",
+                "innoverio.vscode-dbt-power-user",
+                "dorzey.vscode-sqlfluff",
+                "hashicorp.terraform",
+                "ms-azuretools.vscode-docker",
+                "eamodio.gitlens",
+                "redhat.vscode-yaml",
+                "snowflake.snowflake-vsc",
+                "charliermarsh.ruff",
+                "AmazonWebServices.aws-toolkit-vscode",
+                "mkhl.direnv"
+            ]
+        }
+    }
+}
