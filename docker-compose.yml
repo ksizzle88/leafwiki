@@ -90,6 +90,8 @@ services:
   devcontainer:
     extends:
       service: claudio-standalone
+    ports:
+      - "5565:5565"
     volumes:
       - /home/kschepis/workspaces/mpulse:/workspace/mpulse:cached
     labels:

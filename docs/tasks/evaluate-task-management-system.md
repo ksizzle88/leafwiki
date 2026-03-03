@@ -1,6 +1,6 @@
 # Evaluate Task Management System for Claudio
 
-**Status**: Pending
+**Status**: In Progress — Taskmaster AI selected, integration partially complete
 **Priority**: Medium
 **Scope**: Claudio project workflow
 
@@ -94,9 +94,49 @@ Choose and integrate a persistent task management system for AI coding workflows
 4. **Ecosystem momentum** — active development, growing community
 5. **Claudio compatibility** — works with volume architecture and multi-container model
 
-## Next Steps
+## Decision
 
-1. Install Beads in a test container and try it for a real task
-2. Test the `bd ready` / `bd create` workflow with Claude Code
-3. If satisfactory, add to `Dockerfile.base` and document in CLAUDE.md
-4. Consider GSD as complementary execution framework
+**Taskmaster AI selected** — highest community adoption, MCP-native, PRD-driven task decomposition, file-based git storage. Integrated into Claudio base image and multi-agent orchestration system.
+
+## Integration Progress
+
+### Completed
+
+- [x] `Dockerfile.base` — added `task-master-ai` to Layer 8 npm install
+- [x] `.claude/mcp.json` — created with Taskmaster MCP server config
+- [x] `docker-compose.yml` — added port 5565 for Task Studio UI
+- [x] `.devcontainer/init-claude-settings.sh` — added `agents` to overlay sync (line 43) and shared plugin sync (line 238)
+- [x] `.claude/agents/coordinator.md` — coordinator agent definition
+- [x] `.claude/agents/researcher.md` — researcher agent definition
+- [x] `.claude/agents/implementer.md` — implementer agent definition
+- [x] `.claude/agents/reviewer.md` — reviewer agent definition
+- [x] `.claude/skills/coordinating-agents/` — orchestration skill with reference docs and templates
+- [x] `.claude/skills/testing-container-changes/` — safe container testing workflow skill
+
+### Remaining
+
+- [ ] `task-master init` in `/workspace/` — initialize `.taskmaster/` directory (requires `sudo npm install -g task-master-ai` or image rebuild)
+- [ ] Test in side-by-side container (`docker compose build devcontainer-test`)
+- [ ] Verify: `task-master --version`, `task-master list`, Task Studio, `claude --agent coordinator`
+- [ ] Commit all changes on develop branch
+- [ ] Rebuild main devcontainer
+
+### Resume Instructions
+
+To continue from where we left off:
+
+```bash
+# Install task-master-ai (needs sudo for /usr/lib/node_modules)
+sudo npm install -g task-master-ai
+
+# Initialize Taskmaster in workspace
+cd /workspace && task-master init
+
+# Commit .taskmaster/ to git
+
+# Test in side-by-side container
+docker compose build devcontainer-test
+docker compose up -d devcontainer-test
+docker compose exec devcontainer-test zsh
+# Inside: task-master --version && claudio verify
+```

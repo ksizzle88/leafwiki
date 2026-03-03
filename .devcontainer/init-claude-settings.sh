@@ -40,7 +40,7 @@ if [ -z "$(ls -A "$CLAUDE_HOME" 2>/dev/null)" ]; then
         find "$PROJECT_CLAUDE" -maxdepth 1 -type f ! -name ".credentials.json" -exec cp {} "$CLAUDE_HOME/" \;
 
         # Merge directories (commands, reference, skills) - project files override image defaults
-        for dir in commands reference skills; do
+        for dir in commands reference skills agents; do
             if [ -d "$PROJECT_CLAUDE/$dir" ]; then
                 mkdir -p "$CLAUDE_HOME/$dir"
                 cp -r "$PROJECT_CLAUDE/$dir"/* "$CLAUDE_HOME/$dir/" 2>/dev/null || true
@@ -235,7 +235,7 @@ sync_shared_plugins() {
     fi
 
     # Sync custom skills and commands directories (bidirectional)
-    for dir in skills commands; do
+    for dir in skills commands agents; do
         if [ -d "$SHARED_PLUGINS/$dir" ] && [ -n "$(ls -A "$SHARED_PLUGINS/$dir" 2>/dev/null)" ]; then
             echo "  Syncing $dir from shared volume..."
             mkdir -p "$CLAUDE_HOME/$dir"

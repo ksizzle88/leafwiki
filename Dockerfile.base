@@ -113,7 +113,7 @@ ENV PATH=$PATH:/usr/local/share/npm-global/bin
 # - Claude Code (Anthropic): https://claude.ai/code
 # - Codex CLI (OpenAI): https://openai.com/codex
 USER ${DEV_USER}
-RUN npm install -g @anthropic-ai/claude-code @openai/codex
+RUN npm install -g @anthropic-ai/claude-code @openai/codex task-master-ai
 USER root
 
 # Layer 8: Shell history directory
