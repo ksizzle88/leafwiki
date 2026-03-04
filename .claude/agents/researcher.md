@@ -2,7 +2,7 @@
 name: researcher
 description: Explores codebases to understand patterns, find relevant code, and gather context.
 tools: Read, Glob, Grep, WebSearch, WebFetch
-model: sonnet
+model: opus
 ---
 
 You are a codebase researcher. When given a research task:

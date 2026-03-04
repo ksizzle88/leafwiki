@@ -2,7 +2,7 @@
   "master": {
     "tasks": [
       {
-        "id": "1",
+        "id": 1,
         "title": "Merge PR #15 (stage → master) for entrypoint backport",
         "description": "Check CI/CD status on PR #15. If passing, merge it. If failing, investigate and fix. This promotes the entrypoint backport to production.",
         "status": "done",
@@ -12,16 +12,17 @@
         "subtasks": []
       },
       {
-        "id": "2",
+        "id": 2,
         "title": "Commit .taskmaster/tasks/tasks.json seed file",
         "description": "The tasks.json seed file was created but not yet committed to git. Stage and commit it on the develop branch.",
-        "status": "pending",
+        "status": "done",
+        "updatedAt": "2026-03-04T15:15:00Z",
         "priority": "medium",
         "dependencies": [],
         "subtasks": []
       },
       {
-        "id": "3",
+        "id": 3,
         "title": "Commit mpulse devcontainer changes",
         "description": "Modified files: mpulse/.devcontainer/Dockerfile, docker-compose.yml, docker-entrypoint.sh. Review what changed, determine if ready to commit, and commit on develop.",
         "status": "pending",
@@ -30,27 +31,28 @@
         "subtasks": []
       },
       {
-        "id": "4",
+        "id": 4,
         "title": "Review and commit .gitignore updates",
         "description": "The .gitignore has uncommitted changes (added log patterns, editor files, OS files, task file patterns). Review for correctness and commit.",
-        "status": "pending",
+        "status": "done",
+        "updatedAt": "2026-03-04T15:15:00Z",
         "priority": "medium",
         "dependencies": [],
         "subtasks": []
       },
       {
-        "id": "5",
+        "id": 5,
         "title": "Triage untracked directories — commit, gitignore, or remove",
         "description": "Several untracked directories need decisions: claude_for_dummies/ (training docs?), docs/external-repos/ (repo documentation), exploration-logging-strategy-2026-01-14/ (old exploration output), mpulse/.claude/ (project settings), mpulse/tasks/ (old manual task system). For each: commit if valuable, add to .gitignore if local-only, or remove if stale.",
         "status": "pending",
         "priority": "low",
         "dependencies": [
-          "4"
+          4
         ],
         "subtasks": []
       },
       {
-        "id": "6",
+        "id": 6,
         "title": "Configure Taskmaster to use Claude Code as AI provider",
         "description": "Taskmaster's add-task and other AI-powered commands fail because ANTHROPIC_API_KEY and PERPLEXITY_API_KEY are not set. The config.json has an empty claudeCode: {} section that should be configured to route AI generation through the already-authenticated Claude Code CLI (which uses CLAUDE_CODE_OAUTH_TOKEN) instead of direct API calls. Research how Taskmaster's claudeCode provider integration works, configure it properly, and verify that task-master add-task works without needing separate API keys.",
         "status": "pending",
@@ -59,29 +61,29 @@
         "subtasks": []
       },
       {
-        "id": "7",
+        "id": 7,
         "title": "Incorporate Claude Code Agent Teams into Claudio workflow",
         "description": "Research and incorporate Claude Code's official Agent Teams feature (experimental, opt-in via CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1) into the Claudio devcontainer workflow. The codebase already has a custom multi-agent orchestration system using the Task tool (subagents) with coordinator.md, researcher.md, implementer.md, and reviewer.md agents plus the coordinating-agents skill. The official Agent Teams feature adds peer-to-peer messaging between teammates, a shared task list, and self-coordination. Key areas: (1) Enable the feature flag in settings.json, (2) Evaluate adding tmux to the base image for split-pane mode, (3) Determine how team config/task storage in ~/.claude/teams/ and ~/.claude/tasks/ interacts with Claudio's per-container volume strategy, (4) Expand permission pre-approvals to reduce teammate friction, (5) Implement TeammateIdle and TaskCompleted hooks for quality gates, (6) Decide whether to migrate from existing Task tool subagent pattern to official Agent Teams or run both, (7) Update CLAUDE.md and coordinating-agents skill docs.",
         "status": "pending",
         "priority": "medium",
         "dependencies": [
-          "6"
+          6
         ],
         "subtasks": []
       },
       {
-        "id": "8",
+        "id": 8,
         "title": "Implement Taskmaster in the mpulse devcontainer workspace",
         "description": "Initialize Taskmaster in the mpulse workspace (/workspace/mpulse/) by creating .taskmaster/config.json and .taskmaster/tasks/tasks.json. The task-master CLI is already available in the container (inherited from the Claudio base image via npm global install), and CLAUDE_CODE_TASK_LIST_ID=mpulse is already set in the container's zshrc. Key decisions: (1) Migrate existing tasks from the manual markdown folder system (tasks/general/, tasks/DPI_Analytics_DBT/, etc.) into Taskmaster's tasks.json format, (2) Decide whether to keep the old tasks/ folder system alongside Taskmaster or deprecate it, (3) Configure .taskmaster/config.json with the claudeCode provider (depends on task #6 being resolved first), (4) Update mpulse/CLAUDE.md to reference Taskmaster workflow instead of/alongside the manual folder-based task lifecycle, (5) Ensure the mpulse orchestration-agent role documented in CLAUDE.md works with Taskmaster's task board.",
         "status": "pending",
         "priority": "medium",
         "dependencies": [
-          "6"
+          6
         ],
         "subtasks": []
       },
       {
-        "id": "9",
+        "id": 9,
         "title": "Fix mpulse devcontainer to build and run again",
         "description": "The mpulse devcontainer fails to start. The container creates successfully but crashes immediately — VS Code gets 'Shell server terminated (code: 1, signal: null)' and 'unable to upgrade to tcp, received 409' when trying to exec into it, meaning the entrypoint is crashing. VS Code also mounts '--mount type=volume,source=vscode,target=/vscode,external=true' which requires a 'vscode' external volume to exist. Known issues to fix: (1) CRITICAL — claudio-shared external volume in docker-compose.yml must exist before compose up or it hard-fails; ensure create-volumes.sh creates it or make it non-external, (2) HIGH — dbt-redshift==1.9.3 may not exist on PyPI, causing the entire pip install layer and image build to fail; verify and pin to an available version or remove if unused, (3) MEDIUM — ${DEV_USER} ARG is used in the mpulse Dockerfile but never declared there (only in the base Dockerfile.base); it expands to empty string causing chown to silently fail with wrong file ownership, (4) LOW — stale comment in docker-entrypoint.sh says the file is not COPY'd into the image but the Dockerfile does COPY and set it as ENTRYPOINT; clean up the contradiction. Fix all issues, verify the image builds successfully, and confirm the container starts and VS Code can attach.",
         "status": "done",
@@ -91,7 +93,7 @@
         "updatedAt": "2026-03-04T01:51:15.450Z"
       },
       {
-        "id": "10",
+        "id": 10,
         "title": "Deploy Claudio container to cloud with remote control access",
         "description": "Set up the Claudio devcontainer to run in the cloud so it can be accessed from anywhere via Claude Code's built-in remote control feature. Key areas: (1) Choose a cloud platform that supports Docker containers with persistent volumes (to preserve Claudio's auth, plugins, and config volume architecture), (2) Deploy the Claudio container (or a cloud-optimized variant) with the necessary volume mounts and environment, (3) Configure Claude Code remote control sessions so the running instance can be connected to from any device, (4) Ensure persistent sessions survive disconnects (tmux, systemd, or similar), (5) Handle authentication and security for remote access, (6) Document the setup and connection workflow.",
         "status": "pending",
@@ -118,21 +120,21 @@
         "subtasks": []
       },
       {
-        "id": "13",
+        "id": 13,
         "title": "Fix Claude credential persistence in mpulse devcontainer",
         "description": "Claude credentials don't survive container rebuilds. Two root causes: (1) claudio-shared volume is declared without external:true in docker-compose.yml, so Docker creates an isolated project-scoped volume instead of using the global shared one from create-volumes.sh — cross-container credential sync never happens. (2) init-claudio's symlink from ~/.claude to ~/.claudio/claude fails silently because the base image creates ~/.claude as a real directory, and the || true swallows the error — credentials go to ephemeral container filesystem. Fix: make claudio-shared external in docker-compose.yml, add ~/.claude symlink setup in entrypoint before init-claudio, log failures instead of swallowing them, add initializeCommand warning in devcontainer.json.",
         "status": "pending",
         "priority": "high",
-        "dependencies": ["9"],
+        "dependencies": [9],
         "subtasks": []
       },
       {
-        "id": "14",
+        "id": 14,
         "title": "Fix home directory permissions for credential caching",
         "description": "Snowflake CLI (snow) refuses to cache auth tokens because ~/.cache/snowflake/ has 755 permissions instead of required 700. The snow CLI's bundled snowflake-connector-python 3.18.0 has strict FileTokenCache permission validation, while dbt's connector 3.14.0 is lenient. Broader issue: Docker named volumes mount with root:root 755 defaults, WSL bind mounts inherit Windows permissions. Need to audit and fix permissions for all volume-mounted home directories in the entrypoint, with special care for ~/.local/bin executables. Quick fix: add find ~/.cache -type d -exec chmod 700 in entrypoint. Comprehensive fix: expand permission loop for all home subdirectories.",
         "status": "pending",
         "priority": "high",
-        "dependencies": ["9"],
+        "dependencies": [9],
         "subtasks": []
       }
     ],

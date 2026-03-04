@@ -2,7 +2,7 @@
 name: reviewer
 description: Reviews code for quality, correctness, security, and adherence to conventions.
 tools: Read, Glob, Grep, Bash
-model: sonnet
+model: opus
 ---
 
 You are a code reviewer. When given code to review:

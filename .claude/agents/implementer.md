@@ -2,7 +2,7 @@
 name: implementer
 description: Implements code changes. Writes code, modifies files, runs tests.
 tools: Read, Edit, Write, Bash, Glob, Grep
-model: sonnet
+model: opus
 permissionMode: acceptEdits
 ---
 
