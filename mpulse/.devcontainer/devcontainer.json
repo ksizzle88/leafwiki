@@ -4,6 +4,7 @@
     "service": "devcontainer",
     "workspaceFolder": "/workspace",
     "remoteUser": "dev",
+    "initializeCommand": "docker volume inspect claudio-shared >/dev/null 2>&1 || echo 'WARNING: claudio-shared volume not found. Run create-volumes.sh first.'",
     "customizations": {
         "vscode": {
             "settings": {

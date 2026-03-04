@@ -10,7 +10,6 @@ services:
         CLAUDIO_TAG: ${CLAUDIO_TAG:-latest}
     image: mpulse-claudio:latest
     hostname: mpulse
-
     cap_add:
       - NET_ADMIN
       - NET_RAW
@@ -22,8 +21,10 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       # Config files from host (Windows configs via WSL)
       - ${CONFIG_HOME:-$HOME}/.aws:/home/dev/.aws
-      - ${CONFIG_HOME:-$HOME}/.snowflake:/home/dev/.snowflake
+      - ${CONFIG_HOME:-$HOME}/.snowflake:/home/dev/.snowflake-host:ro
       - ${CONFIG_HOME:-$HOME}/.ssh:/home/dev/.ssh-host:ro
+      # Persisted snowflake config (seeded from host on first run)
+      - mpulse-snowflake:/home/dev/.snowflake
       # Shared Claudio auth/plugins volume
       - claudio-shared:/home/dev/.claudio-shared
       # Claude config and shell history
@@ -99,6 +100,7 @@ volumes:
   mpulse-config:
   mpulse-local:
   mpulse-cache:
+  mpulse-snowflake:
 
 networks:
   dev-network:

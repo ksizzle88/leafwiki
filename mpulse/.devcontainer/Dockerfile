@@ -86,16 +86,20 @@ ENV PROJECT_NAME=mpulse
 RUN echo 'eval "$(direnv hook zsh)"' >> /etc/zsh/zshrc \
     && echo 'export CLAUDE_CODE_TASK_LIST_ID="${PROJECT_NAME:-mpulse}"' >> /etc/zsh/zshrc \
     && echo '[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh || eval "$(fzf --zsh 2>/dev/null)"' >> /etc/zsh/zshrc \
-    && echo 'if [ -z "$SSH_AUTH_SOCK" ] && [ -d ~/.ssh ]; then eval "$(ssh-agent -s)" > /dev/null 2>&1 && find ~/.ssh -name "id_*" ! -name "*.pub" -exec ssh-add {} \; 2>/dev/null; fi' >> /etc/zsh/zshrc
+    && echo 'export SSH_AUTH_SOCK="/home/dev/.ssh/agent.sock"' >> /etc/zsh/zshrc \
+    && echo 'alias test-dc="bash /workspace/.devcontainer/test-snowflake.sh"' >> /etc/zsh/zshrc \
+    && echo 'alias add-ssh="ssh-add ~/.ssh/id_rsa"' >> /etc/zsh/zshrc
 
 # Create directories for volume mounts with proper ownership
 # (base entrypoint fixes ownership at runtime, but these are needed during build)
+ARG DEV_USER=dev
 RUN mkdir -p /home/dev/.config /home/dev/.local /home/dev/.cache \
     && chown -R ${DEV_USER}:${DEV_USER} /home/dev/.config /home/dev/.local /home/dev/.cache
 
-# Entrypoint and WORKDIR inherited from base image (docker-entrypoint.sh)
-# The base entrypoint handles: volume permission fixes, SSH key copy, firewall init,
-# dropping privileges to dev user, and running init-claudio.
+# mpulse entrypoint: volume permissions, SSH/Snowflake seeding, drop to dev user
+COPY docker-entrypoint.sh /usr/local/bin/mpulse-entrypoint.sh
+RUN chmod +x /usr/local/bin/mpulse-entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/mpulse-entrypoint.sh"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD claude --version && dbt --version || exit 1

@@ -17,6 +17,16 @@ __pycache__/
 workspace/*
 !workspace/.gitkeep
 
+# External repo documentation (generated/local reference)
+docs/external-repos/
+
+# Old exploration output
+exploration-logging-strategy-2026-01-14/
+
+# mpulse - only devcontainer is committed, rest lives in container volumes
+mpulse/*
+!mpulse/.devcontainer/
+
 # Claude local settings (personal overrides)
 .claude/settings.local.json
 .claude/*.local.md
