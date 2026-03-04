@@ -3,8 +3,6 @@
 Thumbs.db
 .dev/*
 
-
-
 # Node
 node_modules/
 
@@ -35,3 +33,21 @@ docker-compose.override.yml
 # Environment configuration
 .env
 
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dev-debug.log
+
+# Editor directories and files
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Taskmaster ephemeral state
+.taskmaster/state.json
