@@ -66,6 +66,27 @@ if [ ${#TAG_ARRAY[@]} -eq 0 ]; then
     fi
 fi
 
+# Compute build provenance
+BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+BUILD_HOSTNAME=$(hostname -s 2>/dev/null || echo "unknown")
+
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    BUILD_COMMIT=$(git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
+    BUILD_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+
+    # Append -dirty suffix if there are uncommitted changes
+    if ! git diff --quiet HEAD 2>/dev/null || ! git diff --cached --quiet HEAD 2>/dev/null; then
+        BUILD_COMMIT="${BUILD_COMMIT}-dirty"
+    fi
+
+    # Try to get a version tag
+    BUILD_TAG=$(git describe --exact-match --tags 2>/dev/null || echo "dev")
+else
+    BUILD_COMMIT="unknown"
+    BUILD_BRANCH="unknown"
+    BUILD_TAG="dev"
+fi
+
 echo "Building claudio-base with tags: ${TAG_ARRAY[@]}..."
 
 # Load .env if it exists
@@ -84,6 +105,13 @@ fi
 if [ -n "$GIT_USER_NAME" ]; then
     echo "  GIT_USER_NAME: $GIT_USER_NAME"
 fi
+
+echo "  Build provenance:"
+echo "    Commit: $BUILD_COMMIT"
+echo "    Branch: $BUILD_BRANCH"
+echo "    Tag:    $BUILD_TAG"
+echo "    Date:   $BUILD_DATE"
+echo "    Host:   $BUILD_HOSTNAME"
 
 # If pushing to registry, authenticate first
 if [ "$PUSH_TO_REGISTRY" = true ]; then
@@ -123,6 +151,11 @@ docker build \
     --build-arg GIT_USER_NAME="${GIT_USER_NAME:-}" \
     --build-arg GIT_GPG_SIGN="${GIT_GPG_SIGN:-false}" \
     --build-arg GIT_SIGNING_KEY="${GIT_SIGNING_KEY:-}" \
+    --build-arg BUILD_COMMIT="${BUILD_COMMIT}" \
+    --build-arg BUILD_DATE="${BUILD_DATE}" \
+    --build-arg BUILD_BRANCH="${BUILD_BRANCH}" \
+    --build-arg BUILD_TAG="${BUILD_TAG}" \
+    --build-arg BUILD_HOSTNAME="${BUILD_HOSTNAME}" \
     .
 
 # Push to registry if requested

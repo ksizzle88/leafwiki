@@ -192,3 +192,27 @@ ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD node --version && python --version && which claude && which codex || exit 1
+
+# Build provenance (declared last to avoid cache busting)
+ARG BUILD_COMMIT=unknown
+ARG BUILD_DATE=unknown
+ARG BUILD_BRANCH=unknown
+ARG BUILD_TAG=dev
+ARG BUILD_HOSTNAME=unknown
+
+# OCI-standard labels for image metadata
+LABEL org.opencontainers.image.revision="${BUILD_COMMIT}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.version="${BUILD_TAG}" \
+      org.opencontainers.image.source="https://github.com/ksizzle88/claudio" \
+      org.opencontainers.image.title="Claudio" \
+      org.opencontainers.image.description="Production-ready devcontainer for Claude Code development" \
+      com.claudio.build.branch="${BUILD_BRANCH}" \
+      com.claudio.build.hostname="${BUILD_HOSTNAME}"
+
+# Write build provenance to /etc/claudio-release (shell-sourceable KEY=VALUE format)
+RUN echo "BUILD_COMMIT=${BUILD_COMMIT}" > /etc/claudio-release \
+    && echo "BUILD_DATE=${BUILD_DATE}" >> /etc/claudio-release \
+    && echo "BUILD_BRANCH=${BUILD_BRANCH}" >> /etc/claudio-release \
+    && echo "BUILD_TAG=${BUILD_TAG}" >> /etc/claudio-release \
+    && echo "BUILD_HOSTNAME=${BUILD_HOSTNAME}" >> /etc/claudio-release

@@ -62,6 +62,24 @@ get_version() {
 }
 
 #######################################
+# Read build provenance from /etc/claudio-release
+# Outputs:
+#   Sets global variables: BUILD_COMMIT, BUILD_DATE, BUILD_BRANCH, BUILD_TAG, BUILD_HOSTNAME
+#######################################
+load_build_provenance() {
+    BUILD_COMMIT="unknown"
+    BUILD_DATE="unknown"
+    BUILD_BRANCH="unknown"
+    BUILD_TAG="dev"
+    BUILD_HOSTNAME="unknown"
+
+    if [[ -f /etc/claudio-release ]]; then
+        # shellcheck source=/dev/null
+        source /etc/claudio-release
+    fi
+}
+
+#######################################
 # Display version information
 # Globals:
 #   JSON_OUTPUT, CLAUDIO_VERSION
@@ -71,6 +89,7 @@ get_version() {
 show_version_info() {
     if [[ "${JSON_OUTPUT:-false}" == "true" ]]; then
         # JSON output
+        load_build_provenance
         local json
         json=$(cat <<EOF
 {
@@ -80,7 +99,14 @@ show_version_info() {
   "python": "$(get_version python || get_version python3)",
   "gh": "$(get_version gh | awk '{print $3}')",
   "git": "$(get_version git | awk '{print $3}')",
-  "docker": "$(get_version docker | awk '{print $3}')"
+  "docker": "$(get_version docker | awk '{print $3}')",
+  "build": {
+    "commit": "${BUILD_COMMIT}",
+    "date": "${BUILD_DATE}",
+    "branch": "${BUILD_BRANCH}",
+    "tag": "${BUILD_TAG}",
+    "hostname": "${BUILD_HOSTNAME}"
+  }
 }
 EOF
 )
@@ -103,6 +129,18 @@ EOF
         echo ""
         echo "Container Tools:"
         print_table_row "  Docker" "$(get_version docker | awk '{print $3}')" ""
+
+        # Build provenance (only shown inside containers where /etc/claudio-release exists)
+        if [[ -f /etc/claudio-release ]]; then
+            load_build_provenance
+            echo ""
+            echo "Build Provenance:"
+            print_table_row "  Commit" "${BUILD_COMMIT}" ""
+            print_table_row "  Branch" "${BUILD_BRANCH}" ""
+            print_table_row "  Tag" "${BUILD_TAG}" ""
+            print_table_row "  Date" "${BUILD_DATE}" ""
+            print_table_row "  Host" "${BUILD_HOSTNAME}" ""
+        fi
 
         if in_container; then
             echo ""

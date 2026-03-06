@@ -106,6 +106,19 @@ COMMIT_SHA=$(git rev-parse --short=7 HEAD)
 # Check if we're pushing a tag
 GIT_TAG=$(git describe --exact-match --tags 2>/dev/null || echo "")
 
+# Build provenance
+BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+BUILD_HOSTNAME=$(hostname -s 2>/dev/null || echo "unknown")
+
+# Check for dirty working tree
+BUILD_COMMIT_FULL="${COMMIT_SHA}"
+if ! git diff --quiet HEAD 2>/dev/null || ! git diff --cached --quiet HEAD 2>/dev/null; then
+    BUILD_COMMIT_FULL="${COMMIT_SHA}-dirty"
+fi
+
+# Determine build tag
+BUILD_TAG_VALUE="${GIT_TAG:-dev}"
+
 # Auto-detect repository name from git remote
 # This makes the hook universal - works in any repo!
 if [ -z "$REGISTRY_IMAGE_NAME" ]; then
@@ -185,6 +198,13 @@ BUILD_CMD="$BUILD_CMD --cache-from ${IMAGE_BASE}:latest"
 for tag in "${TAGS[@]}"; do
     BUILD_CMD="$BUILD_CMD -t $tag"
 done
+
+# Provenance build args
+BUILD_CMD="$BUILD_CMD --build-arg BUILD_COMMIT=${BUILD_COMMIT_FULL}"
+BUILD_CMD="$BUILD_CMD --build-arg BUILD_DATE=${BUILD_DATE}"
+BUILD_CMD="$BUILD_CMD --build-arg BUILD_BRANCH=${BRANCH}"
+BUILD_CMD="$BUILD_CMD --build-arg BUILD_TAG=${BUILD_TAG_VALUE}"
+BUILD_CMD="$BUILD_CMD --build-arg BUILD_HOSTNAME=${BUILD_HOSTNAME}"
 
 # Use Dockerfile.base (the real Dockerfile)
 BUILD_CMD="$BUILD_CMD -f Dockerfile.base ."

@@ -21,6 +21,11 @@ services:
         GIT_USER_NAME: ${GIT_USER_NAME:-}
         GIT_GPG_SIGN: ${GIT_GPG_SIGN:-false}
         GIT_SIGNING_KEY: ${GIT_SIGNING_KEY:-}
+        BUILD_COMMIT: ${BUILD_COMMIT:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+        BUILD_BRANCH: ${BUILD_BRANCH:-unknown}
+        BUILD_TAG: ${BUILD_TAG:-dev}
+        BUILD_HOSTNAME: ${BUILD_HOSTNAME:-unknown}
     image: ${COMPOSE_PROJECT_NAME:-claudio}-base:${TAG:-develop}
     hostname: claudio
 
