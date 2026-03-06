@@ -25,11 +25,11 @@
         "id": "3",
         "title": "Commit mpulse devcontainer changes",
         "description": "Modified files: mpulse/.devcontainer/Dockerfile, docker-compose.yml, docker-entrypoint.sh. Review what changed, determine if ready to commit, and commit on develop.",
-        "status": "done",
+        "status": "review",
         "priority": "medium",
         "dependencies": [],
         "subtasks": [],
-        "updatedAt": "2026-03-06T03:35:55.426Z"
+        "updatedAt": "2026-03-06T18:25:14.316Z"
       },
       {
         "id": "4",
@@ -127,25 +127,25 @@
         "id": "13",
         "title": "Fix Claude credential persistence in mpulse devcontainer",
         "description": "Claude credentials don't survive container rebuilds. Two root causes: (1) claudio-shared volume is declared without external:true in docker-compose.yml, so Docker creates an isolated project-scoped volume instead of using the global shared one from create-volumes.sh — cross-container credential sync never happens. (2) init-claudio's symlink from ~/.claude to ~/.claudio/claude fails silently because the base image creates ~/.claude as a real directory, and the || true swallows the error — credentials go to ephemeral container filesystem. Fix: make claudio-shared external in docker-compose.yml, add ~/.claude symlink setup in entrypoint before init-claudio, log failures instead of swallowing them, add initializeCommand warning in devcontainer.json.",
-        "status": "done",
+        "status": "review",
         "priority": "high",
         "dependencies": [
           "9"
         ],
         "subtasks": [],
-        "updatedAt": "2026-03-06T03:36:01.444Z"
+        "updatedAt": "2026-03-06T18:25:23.303Z"
       },
       {
         "id": "14",
         "title": "Fix home directory permissions for credential caching",
         "description": "Snowflake CLI (snow) refuses to cache auth tokens because ~/.cache/snowflake/ has 755 permissions instead of required 700. The snow CLI's bundled snowflake-connector-python 3.18.0 has strict FileTokenCache permission validation, while dbt's connector 3.14.0 is lenient. Broader issue: Docker named volumes mount with root:root 755 defaults, WSL bind mounts inherit Windows permissions. Need to audit and fix permissions for all volume-mounted home directories in the entrypoint, with special care for ~/.local/bin executables. Quick fix: add find ~/.cache -type d -exec chmod 700 in entrypoint. Comprehensive fix: expand permission loop for all home subdirectories.",
-        "status": "done",
+        "status": "review",
         "priority": "high",
         "dependencies": [
           "9"
         ],
         "subtasks": [],
-        "updatedAt": "2026-03-06T03:36:07.134Z"
+        "updatedAt": "2026-03-06T18:25:33.286Z"
       },
       {
         "id": "15",
@@ -197,11 +197,11 @@
         "description": "The mpulse devcontainer should automatically set git config --global user.email and git config --global user.name based on values from the .env file (GIT_USER_EMAIL, GIT_USER_NAME). Currently these aren't being set, so git commits inside the container may use wrong or missing identity. Options: (1) Set them in the docker-entrypoint.sh using the environment variables that docker-compose passes from .env, (2) Use the existing Claudio init-claude-settings.sh GIT_USE_PROJECT_CONFIG=true path which already reads these vars, (3) Add them as ENV directives in docker-compose.yml so they're available at runtime. The entrypoint is probably the right place since it already handles other environment setup. Ensure it doesn't overwrite if the user has already configured git identity manually in the container.",
         "details": "",
         "testStrategy": "",
-        "status": "done",
+        "status": "review",
         "dependencies": [],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-03-06T18:15:36.407Z"
+        "updatedAt": "2026-03-06T18:25:41.783Z"
       },
       {
         "id": "20",
@@ -213,13 +213,80 @@
         "dependencies": [],
         "priority": "medium",
         "subtasks": []
+      },
+      {
+        "id": "21",
+        "title": "Add build provenance stamps to Claudio base image",
+        "description": "The Claudio Docker image has no metadata about what it was built from. Add OCI-standard labels and a /etc/claudio-release file so you can always tell exactly what code produced a running container. Must handle: (1) Clean committed builds - stamp git SHA, (2) Dirty builds with uncommitted changes - stamp SHA-dirty, (3) Local builds with no commit - stamp 'unknown', (4) Tagged builds - stamp the version tag, (5) Untagged builds - stamp 'dev'. Always include: build timestamp (UTC), builder hostname, image tag, git branch. Implementation: add ARGs to Dockerfile.base for BUILD_COMMIT, BUILD_DATE, BUILD_BRANCH, BUILD_TAG. Inject them via build-base.sh using git rev-parse, git describe, git diff --quiet checks, and date -u. Write a /etc/claudio-release file and add OCI labels (org.opencontainers.image.revision, .created, .version, .source). Update claudio version command to read and display the stamp. Update GitHub Actions workflow to pass the same build args.",
+        "details": "",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-03-06T19:04:57.661Z"
+      },
+      {
+        "id": "22",
+        "title": "Autonomous pipeline: worktree isolation, auto-PR, and hands-free execution",
+        "description": "Enable the /pipeline command to run fully autonomously in a separate terminal without user interaction. Key areas: (1) Git worktree per pipeline run on auto-created task/<id>-slug branch for isolation, (2) Permission pre-approval strategy so no interactive prompts block execution, (3) Self-healing error patterns — retry logic, fallback strategies, clear escalation-only-when-stuck behavior, (4) Auto-PR creation on reviewer PASS with structured PR body from plan/changes, (5) Structured run report artifact at .taskmaster/runs/task-<id>-run.md for async review, (6) Clean exit with notification mechanism. Updates needed to /pipeline command, agent definitions, coordinator instructions, and possibly .claude/settings.json for scoped permissions.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": "23",
+        "title": "Organize task board: categories, tags, and dependency cleanup",
+        "description": "The task board has grown organically and needs organization. Tasks span multiple concerns (Claudio infra, mpulse devcontainer, agent/orchestration tooling, CI/CD). Add categories and tags to group related tasks. Review and clean up dependency chains. Consider grouping: (1) Claudio core (image builds, volumes, CLI), (2) mpulse devcontainer (entrypoint, zshrc, terraform), (3) Agent orchestration (Taskmaster, agent teams, autonomous pipeline), (4) CI/CD and deployment (GitHub Actions, cloud deploy). Also review completed/stale tasks and archive if needed.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": "24",
+        "title": "EPIC - Persistent task board across agents, containers, and projects",
+        "description": "RESEARCH ONLY — This task produces a research document with recommendations. Implementation will be broken into separate tasks. Research how to persist the Taskmaster task board so that multiple Claude Code sessions, agents, containers, and projects can all read and write to the same task list. Currently tasks.json lives in .taskmaster/tasks/ within a single repo and is only accessible to that session. Investigate options: (1) Shared Docker volume for tasks.json across Claudio containers, (2) Git-based sync (tasks committed to a shared repo or branch), (3) Lightweight server/API (SQLite + REST, or similar) that all agents can hit, (4) File-based with file locking on a shared mount, (5) Task Studio as the persistence layer (it already has a web UI). Consider: conflict resolution when multiple agents write simultaneously, read performance, how this integrates with the existing task-master CLI, cross-project vs single-project boards, and whether Taskmaster supports custom storage backends. Acceptance criteria: a written research document comparing all options with pros/cons/complexity, a recommended approach, and a list of follow-up implementation tasks to be added to the board.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Research persistence options for shared task board",
+            "description": "",
+            "details": "",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 24,
+            "parentId": "undefined"
+          }
+        ]
+      },
+      {
+        "id": "25",
+        "title": "Research persistence options for shared task board",
+        "description": "RESEARCH ONLY — Subtask of EPIC #24. Investigate and compare options for persisting the Taskmaster task board across multiple Claude Code sessions, agents, containers, and projects: (1) Shared Docker volume, (2) Git-based sync, (3) Lightweight REST API with SQLite, (4) File-based with locking on shared mount, (5) Task Studio as persistence layer. Deliverable: a research document comparing all options with pros/cons/complexity/effort, a recommended approach, and a list of follow-up implementation tasks. No code changes.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-03-06T18:15:36.408Z",
-      "taskCount": 20,
-      "completedCount": 8,
+      "lastModified": "2026-03-06T19:04:57.663Z",
+      "taskCount": 25,
+      "completedCount": 5,
       "tags": [
         "master"
       ]
