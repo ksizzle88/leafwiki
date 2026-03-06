@@ -1,8 +1,4 @@
 {
-  "statusLine": {
-    "type": "command",
-    "command": "~/.claude/statusline.sh"
-  },
   "permissions": {
     "allow": [
       "Bash(git:*)",
@@ -13,5 +9,12 @@
       "Bash(find:*)",
       "Bash(REGISTRY_ENABLED=false /workspace/.git/hooks/pre-push)"
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline.sh"
+  },
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true
   }
 }

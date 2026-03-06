@@ -454,6 +454,16 @@ docker run --rm -v myvolume:/data -v $(pwd):/backup \
       "onAutoForward": "notify"
     }
   },
+```
+
+> **Important: Port configuration belongs in docker-compose.yml, not devcontainer.json.**
+> `forwardPorts` and `portsAttributes` are VS Code-only features — they don't work when
+> running containers via plain `docker compose`. Always define port mappings in
+> `docker-compose.yml` under `ports:` so they work in all contexts. Use `forwardPorts`
+> only as a supplement for VS Code auto-forwarding behavior (e.g., `onAutoForward: silent`).
+
+```json
+{
 
   "mounts": [
     "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,readonly,type=bind"
