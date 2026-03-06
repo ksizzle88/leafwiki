@@ -5,7 +5,15 @@ set -e
 # Runs as root: fixes permissions, seeds configs, then drops to dev user.
 
 # --- Volume permission fixes ---
-for dir in /home/dev/.config /home/dev/.local /home/dev/.cache /home/dev/.claude /home/dev/.claudio; do
+VOLUME_DIRS="
+    /home/dev/.config
+    /home/dev/.local
+    /home/dev/.cache
+    /home/dev/.claude
+    /home/dev/.claudio
+    /home/dev/.azure
+"
+for dir in $VOLUME_DIRS; do
     if [ -d "$dir" ]; then
         chown -R dev:dev "$dir" 2>/dev/null || true
         find "$dir" -type d -exec chmod 700 {} \; 2>/dev/null || true

@@ -1,0 +1,50 @@
+# mpulse devcontainer shell customizations
+# Sourced from /etc/zsh/zshrc — edit this file, rebuild container to apply
+
+# --- Tool hooks ---
+eval "$(direnv hook zsh)"
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh || eval "$(fzf --zsh 2>/dev/null)"
+
+# --- Environment ---
+export CLAUDE_CODE_TASK_LIST_ID="${PROJECT_NAME:-mpulse}"
+export SSH_AUTH_SOCK="/home/dev/.ssh/agent.sock"
+
+# --- Aliases ---
+alias test-dc="bash /workspace/.devcontainer/test-snowflake.sh"
+alias add-ssh="ssh-add ~/.ssh/id_rsa"
+
+# --- SSH: auto-add key if not already loaded (match by fingerprint) ---
+if [ -f ~/.ssh/id_rsa ]; then
+    KEY_FP=$(ssh-keygen -lf ~/.ssh/id_rsa 2>/dev/null | awk '{print $2}')
+    if [ -n "$KEY_FP" ] && ! ssh-add -l 2>/dev/null | grep -q "$KEY_FP"; then
+        ssh-add ~/.ssh/id_rsa
+    fi
+fi
+
+# --- SSO login: AWS (default + prod) and Azure all in parallel ---
+sso-login() {
+    echo "Starting SSO logins in parallel..."
+    echo ""
+
+    # Suppress zsh job control noise
+    setopt local_options no_notify no_monitor
+
+    aws sso login 2>&1 | grep -E '(Successfully|Error|expired)' | sed 's/^/[aws-default] /' &
+    local pid_aws1=$!
+
+    aws sso login --profile prod 2>&1 | grep -E '(Successfully|Error|expired)' | sed 's/^/[aws-prod]    /' &
+    local pid_aws2=$!
+
+    (az config set core.login_experience_v2=off 2>/dev/null; \
+     az login --allow-no-subscriptions \
+       --tenant a9719683-829e-4ba2-a97e-cd8529102041 \
+       --only-show-errors 2>&1 | grep -v '^\[') | sed 's/^/[azure]       /' &
+    local pid_az=$!
+
+    wait $pid_aws1 && echo "[aws-default] Done" || echo "[aws-default] FAILED"
+    wait $pid_aws2 && echo "[aws-prod]    Done" || echo "[aws-prod]    FAILED"
+    wait $pid_az   && echo "[azure]       Done" || echo "[azure]       FAILED"
+
+    echo ""
+    echo "All SSO logins complete."
+}

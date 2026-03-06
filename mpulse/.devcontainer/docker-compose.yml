@@ -7,8 +7,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        CLAUDIO_TAG: ${CLAUDIO_TAG:-latest}
-    image: mpulse-claudio:latest
+        CLAUDIO_TAG: ${CLAUDIO_TAG:-develop}
+    image: mpulse-claudio:${CLAUDIO_TAG:-develop}
     hostname: mpulse
     cap_add:
       - NET_ADMIN
@@ -30,6 +30,15 @@ services:
       # Claude config and shell history
       - mpulse-claudio:/home/dev/.claudio
       - mpulse-history:/commandhistory
+      # Hashicorp suite env and creds (Vault, Nomad, Consul)
+      - ${CONFIG_HOME:-$HOME}/.envs:/home/dev/.envs:ro
+      # - ${CONFIG_HOME:-$HOME}/.vault-mpulse-qa.json:/home/dev/.vault-mpulse-qa.json
+      # - ${CONFIG_HOME:-$HOME}/.nomad-mpulse-qa.json:/home/dev/.nomad-mpulse-qa.json
+      # - ${CONFIG_HOME:-$HOME}/.consul-mpulse-qa.json:/home/dev/.consul-mpulse-qa.json
+      # Azure credentials (persisted, seeded by entrypoint if needed)
+      - mpulse-azure:/home/dev/.azure
+      # Shell customizations (live-editable, no rebuild needed)
+      - ./zshrc:/etc/zsh/zshrc.mpulse:ro
       # Persist container settings and configs
       - mpulse-config:/home/dev/.config
       - mpulse-local:/home/dev/.local
@@ -64,6 +73,11 @@ services:
     env_file:
       - path: .env
         required: false
+
+    # VS Code auto-forwards ports dynamically, so these are not needed normally.
+    # Uncomment if OIDC callbacks (Vault port 8250, Azure, etc.) fail to reach the container.
+    # ports:
+    #   - "8250:8250"
 
     healthcheck:
       test: ["CMD", "sh", "-c", "which claude && dbt --version"]
@@ -100,6 +114,7 @@ volumes:
   mpulse-config:
   mpulse-local:
   mpulse-cache:
+  mpulse-azure:
   mpulse-snowflake:
 
 networks:

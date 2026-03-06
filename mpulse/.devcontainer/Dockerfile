@@ -5,7 +5,7 @@
 #   - data-pipelines/snowflake-export (Python data stack)
 #   - hxi-infra (Terraform/AWS)
 
-ARG CLAUDIO_TAG=latest
+ARG CLAUDIO_TAG=develop
 FROM ghcr.io/ksizzle88/claudio:${CLAUDIO_TAG}
 
 USER root
@@ -30,16 +30,37 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 ARG TERRAFORM_VERSION=1.10.0
 RUN wget -q "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" \
     -O /tmp/terraform.zip && \
-    unzip /tmp/terraform.zip -d /tmp && \
+    unzip -o /tmp/terraform.zip -d /tmp && \
     mv /tmp/terraform /usr/local/bin/terraform && \
     chmod +x /usr/local/bin/terraform && \
-    rm /tmp/terraform.zip
+    rm -f /tmp/terraform.zip /tmp/LICENSE.txt
+
+# Install Vault CLI (for hxi-infra HashiCorp suite)
+ARG VAULT_VERSION=1.18.3
+RUN wget -q "https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_linux_amd64.zip" \
+    -O /tmp/vault.zip && \
+    unzip -o /tmp/vault.zip -d /tmp && \
+    mv /tmp/vault /usr/local/bin/vault && \
+    chmod +x /usr/local/bin/vault && \
+    rm -f /tmp/vault.zip /tmp/LICENSE.txt
+
+# Install Nomad CLI (for hxi-infra HashiCorp suite)
+ARG NOMAD_VERSION=1.9.4
+RUN wget -q "https://releases.hashicorp.com/nomad/${NOMAD_VERSION}/nomad_${NOMAD_VERSION}_linux_amd64.zip" \
+    -O /tmp/nomad.zip && \
+    unzip -o /tmp/nomad.zip -d /tmp && \
+    mv /tmp/nomad /usr/local/bin/nomad && \
+    chmod +x /usr/local/bin/nomad && \
+    rm -f /tmp/nomad.zip /tmp/LICENSE.txt
 
 # Install AWS CLI v2 (for data-pipelines boto3 work)
 RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip && \
     unzip /tmp/awscliv2.zip -d /tmp && \
     /tmp/aws/install && \
     rm -rf /tmp/awscliv2.zip /tmp/aws
+
+# Install Azure CLI (for hxi-infra Azure resources)
+RUN curl -fsSL https://aka.ms/InstallAzureCLIDeb | bash
 
 # Create a venv for mpulse Python packages
 # Avoids PEP 668 externally-managed-environment error on Ubuntu 24.04
@@ -82,13 +103,9 @@ ENV PATH="/opt/mpulse-venv/bin:$PATH"
 
 ENV PROJECT_NAME=mpulse
 
-# Bake shell config into zshrc
-RUN echo 'eval "$(direnv hook zsh)"' >> /etc/zsh/zshrc \
-    && echo 'export CLAUDE_CODE_TASK_LIST_ID="${PROJECT_NAME:-mpulse}"' >> /etc/zsh/zshrc \
-    && echo '[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh || eval "$(fzf --zsh 2>/dev/null)"' >> /etc/zsh/zshrc \
-    && echo 'export SSH_AUTH_SOCK="/home/dev/.ssh/agent.sock"' >> /etc/zsh/zshrc \
-    && echo 'alias test-dc="bash /workspace/.devcontainer/test-snowflake.sh"' >> /etc/zsh/zshrc \
-    && echo 'alias add-ssh="ssh-add ~/.ssh/id_rsa"' >> /etc/zsh/zshrc
+# Shell customizations (edit zshrc instead of echo chains)
+COPY zshrc /etc/zsh/zshrc.mpulse
+RUN echo 'source /etc/zsh/zshrc.mpulse' >> /etc/zsh/zshrc
 
 # Create directories for volume mounts with proper ownership
 # (base entrypoint fixes ownership at runtime, but these are needed during build)
