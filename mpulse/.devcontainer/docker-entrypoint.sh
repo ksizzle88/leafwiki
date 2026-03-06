@@ -75,6 +75,25 @@ if [ -d "$SF_DEST" ]; then
     find "$SF_DEST" -type f -exec chmod 600 {} \;
 fi
 
+# --- Git identity from .env variables ---
+if [ -n "$GIT_USER_EMAIL" ]; then
+    runuser -u dev -- git config --global user.email "$GIT_USER_EMAIL"
+    echo "[entrypoint] Set git user.email: $GIT_USER_EMAIL"
+fi
+if [ -n "$GIT_USER_NAME" ]; then
+    runuser -u dev -- git config --global user.name "$GIT_USER_NAME"
+    echo "[entrypoint] Set git user.name: $GIT_USER_NAME"
+fi
+if [ "${GIT_GPG_SIGN:-false}" = "true" ]; then
+    runuser -u dev -- git config --global commit.gpgsign true
+    if [ -n "$GIT_SIGNING_KEY" ]; then
+        runuser -u dev -- git config --global user.signingkey "$GIT_SIGNING_KEY"
+        echo "[entrypoint] Enabled GPG commit signing with key: $GIT_SIGNING_KEY"
+    else
+        echo "[entrypoint] Enabled GPG commit signing (using default key)"
+    fi
+fi
+
 # --- Run init-claudio if available ---
 if [ "$(id -u)" = "0" ]; then
     if [ $# -eq 0 ]; then

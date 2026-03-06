@@ -9,6 +9,9 @@ eval "$(direnv hook zsh)"
 export CLAUDE_CODE_TASK_LIST_ID="${PROJECT_NAME:-mpulse}"
 export SSH_AUTH_SOCK="/home/dev/.ssh/agent.sock"
 
+# --- PATH ---
+export PATH="$HOME/.claude/snowflake:$PATH"
+
 # --- Aliases ---
 alias test-dc="bash /workspace/.devcontainer/test-snowflake.sh"
 alias add-ssh="ssh-add ~/.ssh/id_rsa"
