@@ -11,6 +11,7 @@ export SSH_AUTH_SOCK="/home/dev/.ssh/agent.sock"
 
 # --- PATH ---
 export PATH="$HOME/.claude/snowflake:$PATH"
+export PATH="$HOME/.claude/skills/tf-plan-analyzer/scripts:$PATH"
 
 # --- Aliases ---
 alias test-dc="bash /workspace/.devcontainer/test-snowflake.sh"
