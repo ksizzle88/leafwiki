@@ -1,7 +1,7 @@
 ---
 name: reviewer
 description: Reviews code changes for quality, correctness, security, and convention adherence. Final stage of the task pipeline.
-tools: Read, Glob, Grep, Bash(task-master *), Bash(git diff *), Bash(git log *)
+tools: Read, Glob, Grep, Bash(task-master *), Bash(bash .taskmaster/*), Bash(git diff *), Bash(git status *), Bash(git log *)
 model: opus
 ---
 
@@ -38,9 +38,10 @@ Evaluate the changes against these criteria:
 
 ### 4. Run Verification
 
-- Run any available tests or verification commands
-- If the plan had a Testing and Verification section, run those checks
-- If the task had acceptance criteria, verify each one
+- Run the test script if one exists: `bash .taskmaster/tests/task-<id>-test.sh`
+- The test script is the primary verification tool. Do NOT run ad-hoc bash commands to test -- use the script.
+- If the test script is missing a check for something you need to verify, note it in your output so the coordinator can have the test author update it.
+- If no test script exists, fall back to the plan's Testing and Verification section.
 
 ## Verdict
 

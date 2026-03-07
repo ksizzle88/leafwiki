@@ -296,32 +296,28 @@ docker compose -p claudio_test up -d --build
 docker compose -p claudio_test down
 ```
 
-## Agent Teams (Parallel Pipeline)
+## Task Pipeline (`/do-task`)
 
-Claudio supports two complementary modes for multi-agent work:
-
-- **`/pipeline`** (sequential): Runs research -> plan -> implement -> review stages one at a time using subagents. Best for standard feature implementation where each stage depends on the previous.
-- **`/pipeline-team`** (parallel): Creates an Agent Team where multiple teammates work simultaneously. Best for tasks with independent sub-problems.
-
-### When to Use Agent Teams vs Subagents
-
-| Criteria | Subagents (/pipeline) | Agent Teams (/pipeline-team) |
-|----------|----------------------|------------------------------|
-| Task type | Linear, dependent stages | Independent, parallelizable work |
-| Communication | Report results back to coordinator only | Teammates message each other directly |
-| Best for | Standard features, bug fixes | Research, multi-module refactoring, parallel review |
-| Token cost | Lower | Higher (each teammate has its own context window) |
-| Coordination | Coordinator manages everything | Shared task list with self-coordination |
-
-### Quick Start
+Run any Taskmaster task through a parallel agent team pipeline:
 
 ```bash
-# Sequential pipeline (existing)
-/pipeline 7
-
-# Parallel team pipeline (new)
-/pipeline-team 7
+/do-task <task-id>
 ```
+
+### Stages
+
+```
+0. Read Task         -- load task, set in-progress
+1. Research Team     -- 2-3 parallel researchers explore different aspects
+2. Plan + Test       -- planner + test author work in parallel
+3. Implement         -- parallel implementers by module, self-verify with test script
+4. Review            -- single reviewer runs test script + code review
+```
+
+Key design decisions:
+- **Test script created early** (Stage 2): A verification script is written alongside the plan, based on acceptance criteria. The implementer self-verifies with it, and the reviewer runs it instead of ad-hoc bash commands.
+- **Parallel within stages**: Multiple researchers, multiple implementers (by module), planner + test author in parallel.
+- **Stage gates**: The coordinator reviews output at each stage before proceeding.
 
 ### Configuration
 

@@ -20,8 +20,8 @@ When a plan exists at `.taskmaster/plans/task-<id>-plan.md`:
 2. **Execute implementation steps in order** -- follow each numbered step sequentially, since steps are in dependency order
 3. **Verify each step** -- after completing a step, run its verification command from the plan to confirm it worked before moving on
 4. **Handle divergence** -- if a step fails or the plan does not match the current state of the codebase (e.g., a file was moved, a function was renamed), adapt your approach and note the divergence. Do not stop unless the divergence is fundamental and makes the plan unworkable.
-5. **Run final verification** -- when all steps are done, execute the Testing and Verification section from the plan
-6. **Return a summary** -- list what was changed, any divergences from the plan, and verification results
+5. **Run the test script** -- if a test script exists at `.taskmaster/tests/task-<id>-test.sh`, run it to self-verify: `bash .taskmaster/tests/task-<id>-test.sh`. Fix any failures before reporting back.
+6. **Return a summary** -- list what was changed, any divergences from the plan, and test script results
 
 ## Ad-Hoc Mode
 
