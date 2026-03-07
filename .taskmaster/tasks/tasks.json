@@ -2,7 +2,7 @@
   "master": {
     "tasks": [
       {
-        "id": 1,
+        "id": "1",
         "title": "Merge PR #15 (stage → master) for entrypoint backport",
         "description": "Check CI/CD status on PR #15. If passing, merge it. If failing, investigate and fix. This promotes the entrypoint backport to production.",
         "status": "done",
@@ -12,7 +12,7 @@
         "subtasks": []
       },
       {
-        "id": 2,
+        "id": "2",
         "title": "Commit .taskmaster/tasks/tasks.json seed file",
         "description": "The tasks.json seed file was created but not yet committed to git. Stage and commit it on the develop branch.",
         "status": "done",
@@ -22,7 +22,7 @@
         "subtasks": []
       },
       {
-        "id": 3,
+        "id": "3",
         "title": "Commit mpulse devcontainer changes",
         "description": "Modified files: mpulse/.devcontainer/Dockerfile, docker-compose.yml, docker-entrypoint.sh. Review what changed, determine if ready to commit, and commit on develop.",
         "status": "review",
@@ -32,7 +32,7 @@
         "updatedAt": "2026-03-06T18:25:14.316Z"
       },
       {
-        "id": 4,
+        "id": "4",
         "title": "Review and commit .gitignore updates",
         "description": "The .gitignore has uncommitted changes (added log patterns, editor files, OS files, task file patterns). Review for correctness and commit.",
         "status": "done",
@@ -42,7 +42,7 @@
         "subtasks": []
       },
       {
-        "id": 5,
+        "id": "5",
         "title": "Triage untracked directories — commit, gitignore, or remove",
         "description": "Several untracked directories need decisions: claude_for_dummies/ (training docs?), docs/external-repos/ (repo documentation), exploration-logging-strategy-2026-01-14/ (old exploration output), mpulse/.claude/ (project settings), mpulse/tasks/ (old manual task system). For each: commit if valuable, add to .gitignore if local-only, or remove if stale.",
         "status": "pending",
@@ -53,7 +53,7 @@
         "subtasks": []
       },
       {
-        "id": 6,
+        "id": "6",
         "title": "Configure Taskmaster to use Claude Code as AI provider",
         "description": "Taskmaster's add-task and other AI-powered commands fail because ANTHROPIC_API_KEY and PERPLEXITY_API_KEY are not set. The config.json has an empty claudeCode: {} section that should be configured to route AI generation through the already-authenticated Claude Code CLI (which uses CLAUDE_CODE_OAUTH_TOKEN) instead of direct API calls. Research how Taskmaster's claudeCode provider integration works, configure it properly, and verify that task-master add-task works without needing separate API keys. RESOLUTION: Config is correctly set (claude-code provider, all 3 roles). Root cause is CLAUDECODE=1 env var blocking nested sessions — upstream bug, not fixable via config. Superseded by #28 (wrapper script) and #29 (GitHub Issues migration). Research saved to .taskmaster/research/task-6-taskmaster-ai-provider.md.",
         "status": "done",
@@ -63,7 +63,7 @@
         "updatedAt": "2026-03-06T19:35:22.751Z"
       },
       {
-        "id": 7,
+        "id": "7",
         "title": "Add Agent Teams support to Claudio (hybrid mode)",
         "description": "Enable Claude Code Agent Teams as a complementary capability alongside the existing subagent pipeline. NOT a migration — both modes coexist. Changes: (1) Install tmux in base image for split-pane mode, (2) Add CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS to settings.json, (3) Create TeammateIdle and TaskCompleted hook scripts for quality gates, (4) Expand permission pre-approvals for teammate friction reduction, (5) Document when to use Teams vs subagents in CLAUDE.md, (6) Create /pipeline-team slash command for parallel team-based workflows. Merges #18 and #27. Research saved to .taskmaster/research/ — key finding: sequential pipeline stays as subagents, Teams used for parallel work only.",
         "status": "done",
@@ -74,7 +74,7 @@
         "subtasks": []
       },
       {
-        "id": 8,
+        "id": "8",
         "title": "Implement Taskmaster in the mpulse devcontainer workspace",
         "description": "Initialize Taskmaster in the mpulse workspace (/workspace/mpulse/) by creating .taskmaster/config.json and .taskmaster/tasks/tasks.json. The task-master CLI is already available in the container (inherited from the Claudio base image via npm global install), and CLAUDE_CODE_TASK_LIST_ID=mpulse is already set in the container's zshrc. Key decisions: (1) Migrate existing tasks from the manual markdown folder system (tasks/general/, tasks/DPI_Analytics_DBT/, etc.) into Taskmaster's tasks.json format, (2) Decide whether to keep the old tasks/ folder system alongside Taskmaster or deprecate it, (3) Configure .taskmaster/config.json with the claudeCode provider (depends on task #6 being resolved first), (4) Update mpulse/CLAUDE.md to reference Taskmaster workflow instead of/alongside the manual folder-based task lifecycle, (5) Ensure the mpulse orchestration-agent role documented in CLAUDE.md works with Taskmaster's task board.",
         "status": "pending",
@@ -85,7 +85,7 @@
         "subtasks": []
       },
       {
-        "id": 9,
+        "id": "9",
         "title": "Fix mpulse devcontainer to build and run again",
         "description": "The mpulse devcontainer fails to start. The container creates successfully but crashes immediately — VS Code gets 'Shell server terminated (code: 1, signal: null)' and 'unable to upgrade to tcp, received 409' when trying to exec into it, meaning the entrypoint is crashing. VS Code also mounts '--mount type=volume,source=vscode,target=/vscode,external=true' which requires a 'vscode' external volume to exist. Known issues to fix: (1) CRITICAL — claudio-shared external volume in docker-compose.yml must exist before compose up or it hard-fails; ensure create-volumes.sh creates it or make it non-external, (2) HIGH — dbt-redshift==1.9.3 may not exist on PyPI, causing the entire pip install layer and image build to fail; verify and pin to an available version or remove if unused, (3) MEDIUM — ${DEV_USER} ARG is used in the mpulse Dockerfile but never declared there (only in the base Dockerfile.base); it expands to empty string causing chown to silently fail with wrong file ownership, (4) LOW — stale comment in docker-entrypoint.sh says the file is not COPY'd into the image but the Dockerfile does COPY and set it as ENTRYPOINT; clean up the contradiction. Fix all issues, verify the image builds successfully, and confirm the container starts and VS Code can attach.",
         "status": "done",
@@ -95,7 +95,7 @@
         "updatedAt": "2026-03-04T01:51:15.450Z"
       },
       {
-        "id": 10,
+        "id": "10",
         "title": "Deploy Claudio container to cloud with remote control access",
         "description": "Set up the Claudio devcontainer to run in the cloud so it can be accessed from anywhere via Claude Code's built-in remote control feature. Key areas: (1) Choose a cloud platform that supports Docker containers with persistent volumes (to preserve Claudio's auth, plugins, and config volume architecture), (2) Deploy the Claudio container (or a cloud-optimized variant) with the necessary volume mounts and environment, (3) Configure Claude Code remote control sessions so the running instance can be connected to from any device, (4) Ensure persistent sessions survive disconnects (tmux, systemd, or similar), (5) Handle authentication and security for remote access, (6) Document the setup and connection workflow.",
         "status": "pending",
@@ -104,7 +104,7 @@
         "subtasks": []
       },
       {
-        "id": 11,
+        "id": "11",
         "title": "Research better automated agent orchestration solutions",
         "description": "The current multi-agent setup uses a manual coordinator pattern — a coordinator agent reads the Taskmaster board, dispatches researcher/implementer/reviewer sub-agents via the Task tool, and synthesizes results. This works but requires significant human shepherding. Research more automated orchestration approaches: (1) Evaluate existing frameworks (CrewAI, AutoGen, LangGraph, OpenAI Swarm, Claude Agent SDK) for orchestrating Claude Code agents with less manual intervention, (2) Investigate whether Claude Code's official Agent Teams feature (task #7) can serve as the orchestration layer with TeammateIdle/TaskCompleted hooks driving automation, (3) Look at CI/CD-style pipelines (GitHub Actions, Dagger) that could trigger agent workflows on events (PR opened, task status changed, etc.), (4) Explore custom orchestrator options — a lightweight daemon or script that watches the Taskmaster board and auto-dispatches agents based on task status, priority, and dependencies, (5) Evaluate tradeoffs: autonomy vs control, cost, token usage, error recovery, and human-in-the-loop checkpoints. Goal: find or design an orchestration layer that can run the task board with minimal human intervention while maintaining quality gates.",
         "status": "pending",
@@ -113,7 +113,7 @@
         "subtasks": []
       },
       {
-        "id": 12,
+        "id": "12",
         "title": "Build Claudio control plane UI for task, agent, and environment management",
         "description": "Design and build a remotely accessible web-based control plane UI for the Claudio platform — accessible from any device/browser over the internet, not just localhost. Core capabilities: (1) TASK MANAGEMENT — full CRUD on tasks with Kanban board, list views, filtering, search, inline editing, comments, and dependency visualization; replace the need to edit tasks.json by hand or use CLI, (2) AGENT MANAGEMENT — view running agents (researchers, implementers, reviewers, agent teams), see their status, logs, and output in real-time; spawn new agents from the UI; kill or redirect agents; assign agents to tasks, (3) ENVIRONMENT MANAGEMENT — view and manage Claudio containers, volumes, and devcontainer configs; start/stop/rebuild containers; view resource usage; manage shared volumes and auth state, (4) GIT WORKTREE SUPPORT — agents working on tasks should operate in isolated git worktrees so they don't conflict with each other or the main working tree; the UI should show active worktrees, which agent owns each, and allow merging results back, (5) SANDBOX / LONG-RUNNING TASKS — support agents running in sandboxed containers on long-running tasks (hours/days); the UI should show progress, allow check-ins, and let you review intermediate output without interrupting the agent; agents should survive disconnects and be reconnectable, (6) REMOTE ACCESS — the UI must be securely accessible over the internet with authentication, not just on localhost; support HTTPS, auth tokens or OAuth, and work from any browser on any device (laptop, phone, tablet). Tech stack TBD but should integrate with Taskmaster's tasks.json format, Claude Code's remote control and Agent Teams features, and Docker for container/worktree orchestration.",
         "status": "pending",
@@ -125,7 +125,7 @@
         "subtasks": []
       },
       {
-        "id": 13,
+        "id": "13",
         "title": "Fix Claude credential persistence in mpulse devcontainer",
         "description": "Claude credentials don't survive container rebuilds. Two root causes: (1) claudio-shared volume is declared without external:true in docker-compose.yml, so Docker creates an isolated project-scoped volume instead of using the global shared one from create-volumes.sh — cross-container credential sync never happens. (2) init-claudio's symlink from ~/.claude to ~/.claudio/claude fails silently because the base image creates ~/.claude as a real directory, and the || true swallows the error — credentials go to ephemeral container filesystem. Fix: make claudio-shared external in docker-compose.yml, add ~/.claude symlink setup in entrypoint before init-claudio, log failures instead of swallowing them, add initializeCommand warning in devcontainer.json.",
         "status": "review",
@@ -137,7 +137,7 @@
         "updatedAt": "2026-03-06T18:25:23.303Z"
       },
       {
-        "id": 14,
+        "id": "14",
         "title": "Fix home directory permissions for credential caching",
         "description": "Snowflake CLI (snow) refuses to cache auth tokens because ~/.cache/snowflake/ has 755 permissions instead of required 700. The snow CLI's bundled snowflake-connector-python 3.18.0 has strict FileTokenCache permission validation, while dbt's connector 3.14.0 is lenient. Broader issue: Docker named volumes mount with root:root 755 defaults, WSL bind mounts inherit Windows permissions. Need to audit and fix permissions for all volume-mounted home directories in the entrypoint, with special care for ~/.local/bin executables. Quick fix: add find ~/.cache -type d -exec chmod 700 in entrypoint. Comprehensive fix: expand permission loop for all home subdirectories.",
         "status": "review",
@@ -149,7 +149,7 @@
         "updatedAt": "2026-03-06T18:25:33.286Z"
       },
       {
-        "id": 15,
+        "id": "15",
         "title": "Import reflect command into Claudio base image as a core skill",
         "description": "The mpulse container has a /reflect command (at ~/.claude/commands/review/reflect.md) that creates structured session post-mortems in .claude/review/<session-name>/. This is a general-purpose skill valuable across all Claudio containers, not just mpulse. Import it into the Claudio base image so it ships as a default command. Place it in the appropriate location in the base image defaults (/opt/claudio-defaults/.claude/commands/) so it's available in every new container. Ensure it works with the existing init-claude-settings.sh sync mechanism.",
         "details": "",
@@ -160,7 +160,7 @@
         "subtasks": []
       },
       {
-        "id": 16,
+        "id": "16",
         "title": "Commit mpulse skills (snowflake-query, tf-plan-analyzer) into the repo",
         "description": "The mpulse container has two custom skills — snowflake-query (Snowflake Query Bridge via snow-2-claude) and tf-plan-analyzer (Terraform plan analysis and migration toolkit with tfplan.py scripts and migration_patterns.md reference). These currently live only on the mpulse-claudio Docker volume at ~/.claude/skills/ and would be lost if the volume is deleted. Move them into the mpulse repo (e.g., mpulse/.claude/skills/) so they're version-controlled, reviewable, and automatically available via the workspace bind mount. Ensure the devcontainer's init/entrypoint correctly overlays repo skills onto the container's ~/.claude/skills/ directory.",
         "details": "",
@@ -171,7 +171,7 @@
         "subtasks": []
       },
       {
-        "id": 17,
+        "id": "17",
         "title": "Fix duplicate skills in Claudio — deduplicate system vs user copies",
         "description": "In the Claudio base container, every skill ends up with two copies: one baked into the image at /opt/claudio-defaults/.claude/ (system defaults) and one in the per-container volume at ~/.claude/ (user copy). The init-claude-settings.sh script copies defaults into the volume on first run, but after that both copies exist independently and can drift. This wastes context when Claude Code loads skills and creates confusion about which copy is authoritative. Fix the initialization/sync mechanism so there's a single source of truth for each skill — either the system defaults are symlinked rather than copied, or the overlay strategy is reworked so skills aren't duplicated. Consider: system skills as read-only base layer, user skills as overrides only, not full copies.",
         "details": "",
@@ -182,7 +182,7 @@
         "subtasks": []
       },
       {
-        "id": 18,
+        "id": "18",
         "title": "Enable multi-terminal agent teams via tmux for interactive sub-agent communication",
         "description": "Add the ability to run Claude Code sub-agent teams in separate tmux panes/windows so the user can interact with individual agents in different terminals. Currently, sub-agents are spawned via the Task tool and run autonomously without user interaction until they return. With tmux integration: (1) Install tmux in the Claudio base image (and mpulse devcontainer) if not already present, (2) Create a workflow/skill for spawning agent teammates in named tmux sessions (e.g., tmux new-session -d -s researcher 'claude --resume ...'), (3) Enable the user to switch between agent terminals (tmux attach -t researcher, tmux attach -t implementer) to observe, interact with, or redirect agents in real-time, (4) Investigate how Claude Code's official Agent Teams feature (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1) integrates with tmux — the feature docs mention split-pane mode for teammates, (5) Design the session naming convention and lifecycle management (auto-cleanup when agents finish, persistent sessions for long-running tasks), (6) Consider integration with the coordinating-agents skill so the coordinator can spawn tmux-based teammates instead of Task-tool sub-agents. This bridges the gap between fully autonomous sub-agents and interactive pair-programming with individual team members. MERGED into #7 (hybrid Agent Teams support).",
         "details": "",
@@ -193,7 +193,7 @@
         "subtasks": []
       },
       {
-        "id": 19,
+        "id": "19",
         "title": "Configure git user identity in mpulse devcontainer from .env variables",
         "description": "The mpulse devcontainer should automatically set git config --global user.email and git config --global user.name based on values from the .env file (GIT_USER_EMAIL, GIT_USER_NAME). Currently these aren't being set, so git commits inside the container may use wrong or missing identity. Options: (1) Set them in the docker-entrypoint.sh using the environment variables that docker-compose passes from .env, (2) Use the existing Claudio init-claude-settings.sh GIT_USE_PROJECT_CONFIG=true path which already reads these vars, (3) Add them as ENV directives in docker-compose.yml so they're available at runtime. The entrypoint is probably the right place since it already handles other environment setup. Ensure it doesn't overwrite if the user has already configured git identity manually in the container.",
         "details": "",
@@ -205,7 +205,7 @@
         "updatedAt": "2026-03-06T18:25:41.783Z"
       },
       {
-        "id": 20,
+        "id": "20",
         "title": "Create robust terraform plan wrapper script for mpulse container",
         "description": "Create a reusable script/skill for the mpulse devcontainer that wraps the common terraform plan workflow: 'terraform plan -out tfplan.out && terraform show -json tfplan.out > tfplan.json'. This is the Terraform equivalent of the snow-2-claude Snowflake bridge. The script should: (1) Accept -target flags to plan specific resources (e.g., tf-plan -target=module.roles), (2) Auto-detect if terraform init is needed (no .terraform directory or stale lock) and run it first, (3) Support passing through other terraform plan flags (-var, -var-file, -refresh-only, -destroy, etc.), (4) Always produce both tfplan.out (for apply) and tfplan.json (for analysis by the tf-plan-analyzer skill), (5) Output the plan summary and tell the user/agent the path to tfplan.json for analysis, (6) Integrate with the existing tf-plan-analyzer skill so the agent can immediately run analysis scripts on the output, (7) Handle multiple Terraform environment directories (the user works across different envs in hxi-infra). Should be a shell script installed in the container, callable as a simple command like 'tf-plan' or 'tfp'.",
         "details": "",
@@ -216,7 +216,7 @@
         "subtasks": []
       },
       {
-        "id": 21,
+        "id": "21",
         "title": "Add build provenance stamps to Claudio base image",
         "description": "The Claudio Docker image has no metadata about what it was built from. Add OCI-standard labels and a /etc/claudio-release file so you can always tell exactly what code produced a running container. Must handle: (1) Clean committed builds - stamp git SHA, (2) Dirty builds with uncommitted changes - stamp SHA-dirty, (3) Local builds with no commit - stamp 'unknown', (4) Tagged builds - stamp the version tag, (5) Untagged builds - stamp 'dev'. Always include: build timestamp (UTC), builder hostname, image tag, git branch. Implementation: add ARGs to Dockerfile.base for BUILD_COMMIT, BUILD_DATE, BUILD_BRANCH, BUILD_TAG. Inject them via build-base.sh using git rev-parse, git describe, git diff --quiet checks, and date -u. Write a /etc/claudio-release file and add OCI labels (org.opencontainers.image.revision, .created, .version, .source). Update claudio version command to read and display the stamp. Update GitHub Actions workflow to pass the same build args.",
         "details": "",
@@ -228,7 +228,7 @@
         "updatedAt": "2026-03-06T19:04:57.661Z"
       },
       {
-        "id": 22,
+        "id": "22",
         "title": "Autonomous pipeline: worktree isolation, auto-PR, and hands-free execution",
         "description": "Enable the /pipeline command to run fully autonomously in a separate terminal without user interaction. Key areas: (1) Git worktree per pipeline run on auto-created task/<id>-slug branch for isolation, (2) Permission pre-approval strategy so no interactive prompts block execution, (3) Self-healing error patterns — retry logic, fallback strategies, clear escalation-only-when-stuck behavior, (4) Auto-PR creation on reviewer PASS with structured PR body from plan/changes, (5) Structured run report artifact at .taskmaster/runs/task-<id>-run.md for async review, (6) Clean exit with notification mechanism. Updates needed to /pipeline command, agent definitions, coordinator instructions, and possibly .claude/settings.json for scoped permissions.",
         "details": "",
@@ -239,7 +239,7 @@
         "subtasks": []
       },
       {
-        "id": 23,
+        "id": "23",
         "title": "Organize task board: categories, tags, and dependency cleanup",
         "description": "The task board has grown organically and needs organization. Tasks span multiple concerns (Claudio infra, mpulse devcontainer, agent/orchestration tooling, CI/CD). Add categories and tags to group related tasks. Review and clean up dependency chains. Consider grouping: (1) Claudio core (image builds, volumes, CLI), (2) mpulse devcontainer (entrypoint, zshrc, terraform), (3) Agent orchestration (Taskmaster, agent teams, autonomous pipeline), (4) CI/CD and deployment (GitHub Actions, cloud deploy). Also review completed/stale tasks and archive if needed.",
         "details": "",
@@ -250,7 +250,7 @@
         "subtasks": []
       },
       {
-        "id": 24,
+        "id": "24",
         "title": "EPIC - Persistent task board across agents, containers, and projects",
         "description": "RESEARCH ONLY — This task produces a research document with recommendations. Implementation will be broken into separate tasks. Research how to persist the Taskmaster task board so that multiple Claude Code sessions, agents, containers, and projects can all read and write to the same task list. Currently tasks.json lives in .taskmaster/tasks/ within a single repo and is only accessible to that session. Investigate options: (1) Shared Docker volume for tasks.json across Claudio containers, (2) Git-based sync (tasks committed to a shared repo or branch), (3) Lightweight server/API (SQLite + REST, or similar) that all agents can hit, (4) File-based with file locking on a shared mount, (5) Task Studio as the persistence layer (it already has a web UI). Consider: conflict resolution when multiple agents write simultaneously, read performance, how this integrates with the existing task-master CLI, cross-project vs single-project boards, and whether Taskmaster supports custom storage backends. Acceptance criteria: a written research document comparing all options with pros/cons/complexity, a recommended approach, and a list of follow-up implementation tasks to be added to the board.",
         "details": "",
@@ -272,7 +272,7 @@
         ]
       },
       {
-        "id": 25,
+        "id": "25",
         "title": "Research persistence options for shared task board",
         "description": "RESEARCH ONLY — Subtask of EPIC #24. Investigate and compare options for persisting the Taskmaster task board across multiple Claude Code sessions, agents, containers, and projects: (1) Shared Docker volume, (2) Git-based sync, (3) Lightweight REST API with SQLite, (4) File-based with locking on shared mount, (5) Task Studio as persistence layer. Deliverable: a research document comparing all options with pros/cons/complexity/effort, a recommended approach, and a list of follow-up implementation tasks. No code changes.",
         "details": "",
@@ -283,7 +283,7 @@
         "subtasks": []
       },
       {
-        "id": 26,
+        "id": "26",
         "title": "Update Taskmaster AI models to use Claude Opus",
         "description": "Change Taskmaster model configuration from sonnet/haiku to opus for all roles (main, research, fallback). Currently configured as claude-code/sonnet (main + research) and claude-code/haiku (fallback). The claude-code provider is configured and detected but invocations fail with 'Claude Code process exited with code 1'. Switching to opus may help and is preferred for quality. Run task-master models --set-main opus, --set-research opus, --set-fallback sonnet. Also investigate why the claude-code provider invocation fails — may need to debug how Taskmaster shells out to the claude CLI.",
         "details": "",
@@ -294,7 +294,7 @@
         "subtasks": []
       },
       {
-        "id": 27,
+        "id": "27",
         "title": "Migrate pipeline from subagents to Agent Teams with subteams",
         "description": "Update the /pipeline command and coordinator workflow to use Claude Code's official Agent Teams feature instead of sequential subagent dispatches. Currently the pipeline uses hub-and-spoke with Agent tool subagent_type (researcher, planner, implementer, reviewer) dispatched one at a time by the coordinator. Investigate whether Agent Teams supports subteams (e.g. a research team, implementation team) and peer-to-peer coordination that could replace the coordinator's manual review-and-dispatch loop. Depends on #7 (Agent Teams in Claudio) and #22 (autonomous pipeline). Key questions: Can teams self-coordinate? Can we define team roles that map to our pipeline stages? Does the shared task list replace Taskmaster? How do quality gates (reviewer PASS/FAIL) work in a team model? MERGED into #7 (hybrid Agent Teams support). Research found full migration is not recommended — sequential pipeline stays as subagents, Teams added for parallel use cases only.",
         "details": "",
@@ -305,7 +305,7 @@
         "subtasks": []
       },
       {
-        "id": 28,
+        "id": "28",
         "title": "Phase 1: Wrapper script for task-master update-task (bypass AI)",
         "description": "Create a wrapper script that intercepts the task-master update-task command and routes it to a jq-based script for direct JSON manipulation, bypassing Taskmaster's broken AI provider. All other commands pass through to the real task-master binary. Behavior: (1) --description appends by default (append-only), (2) --description with --replace flag does full replacement, (3) --title always replaces, (4) --details appends by default with --replace option. The wrapper lives at /usr/local/bin/task-master (ahead of npm binary in PATH) or replaces the symlink. Same CLI interface so agents, slash commands, and pipeline work without changes. See research: .taskmaster/research/task-6-taskmaster-ai-provider.md for root cause analysis and source code details.",
         "details": "",
@@ -316,7 +316,7 @@
         "subtasks": []
       },
       {
-        "id": 29,
+        "id": "29",
         "title": "Phase 2: Migrate task management to GitHub Issues/Projects",
         "description": "Replace Taskmaster with GitHub Issues/Projects for task management. Create a task-master-compatible CLI wrapper around gh issue and gh project commands so the same interface works. Map: task-master add-task → gh issue create, task-master list → gh issue list, task-master set-status → gh issue edit (labels), task-master show → gh issue view, update-task → gh issue comment (append) or gh issue edit (replace). Kanban via GitHub Projects board. Depends on Phase 1 wrapper being in place so migration is just swapping the backend. For private/work projects that can't go on public GitHub, evaluate Kanboard (29MB Docker, SQLite, JSON-RPC API) as local alternative. See research: .taskmaster/research/task-management-tool-comparison.md for full tool comparison.",
         "details": "",
@@ -327,7 +327,7 @@
         "subtasks": []
       },
       {
-        "id": 30,
+        "id": "30",
         "title": "Clean up duplicate AGENT_TEAMS env var in Dockerfile vs settings.json",
         "description": "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 is set in both Dockerfile.base line 136 (zsh profile) and .claude/settings.json (env block). Decide which is canonical and remove the other. Harmless but messy.",
         "details": "",
@@ -336,19 +336,50 @@
         "dependencies": [],
         "priority": "low",
         "subtasks": []
+      },
+      {
+        "id": "31",
+        "title": "Fix init-claude-settings.sh to sync hooks on every container start",
+        "description": "The hooks directory only syncs during first-time initialization (when ~/.claude is empty). On subsequent container starts with an existing volume, hooks from /workspace/.claude/hooks/ are never copied to ~/.claude/hooks/. This means new or updated hooks require manual sync or volume reset. Fix: add hooks sync to the always-run section of init-claude-settings.sh (outside the first-init guard), similar to how credentials sync runs every time. Also affects commands/skills/agents dirs — they all have the same issue on existing volumes.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": "32",
+        "title": "Fix build provenance showing unknown in devcontainer rebuilds",
+        "description": "When rebuilding via VS Code 'Dev Containers: Rebuild Container', all provenance fields show 'unknown' because the rebuild goes through docker-compose.yml which has ${BUILD_COMMIT:-unknown} defaults — no script computes the actual values. The build-base.sh and pre-push hook compute provenance but docker-compose does not. Options: (1) Add a pre-build script that docker-compose calls to compute and export BUILD_* vars, (2) Use a .env file that gets auto-generated with provenance before compose build, (3) Add a Makefile or wrapper that sets the vars before calling docker compose build, (4) Use docker-compose build args with shell command substitution if supported. Goal: devcontainer rebuilds should show real commit/branch/date, not unknown.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": "33",
+        "title": "Fix mpulse zshrc bind mount failing on WSL Docker",
+        "description": "## Goal\n\nRemove the fragile bind mount of the mpulse zshrc file that prevents the devcontainer from starting on WSL Docker. The container already COPYs this file into the image at build time, making the bind mount redundant. Removing it fixes the startup failure with zero functionality loss.\n\n## Current State\n\nThe mpulse devcontainer fails to start on WSL Docker Desktop with:\n\n```\nerror mounting to rootfs at /etc/zsh/zshrc.mpulse: no such file or directory\n```\n\n### Root Cause\n\nThere is a **redundant dual approach** for the zshrc file:\n\n1. **Dockerfile** (lines 107-108 of `/workspace/mpulse/.devcontainer/Dockerfile`):\n   - `COPY zshrc /etc/zsh/zshrc.mpulse` -- copies the file into the image at build time\n   - `RUN echo 'source /etc/zsh/zshrc.mpulse' >> /etc/zsh/zshrc` -- wires it into the global zshrc\n\n2. **docker-compose.yml** (line 41 of `/workspace/mpulse/.devcontainer/docker-compose.yml`):\n   - `./zshrc:/etc/zsh/zshrc.mpulse:ro` -- bind-mounts the same file over the COPY'd version at runtime\n\nThe bind mount on line 41 was added for \"live-editable, no rebuild needed\" convenience (per the comment on line 40). However, Docker on WSL cannot resolve the relative path `./zshrc` through the bind mount chain (Windows -> WSL -> Docker path translation), causing the container to fail to start entirely.\n\n### Files Involved\n\n- `/workspace/mpulse/.devcontainer/docker-compose.yml` -- contains the failing bind mount (line 41) and its comment (line 40)\n- `/workspace/mpulse/.devcontainer/Dockerfile` -- already has the correct COPY + source approach (lines 106-108)\n- `/workspace/mpulse/.devcontainer/zshrc` -- the shell customization file (54 lines: direnv hook, fzf, PATH exports, aliases, SSH auto-add, sso-login function)\n\n### What the zshrc Contains\n\nThe file at `/workspace/mpulse/.devcontainer/zshrc` provides mpulse-specific shell customizations:\n- direnv and fzf hooks\n- CLAUDE_CODE_TASK_LIST_ID and SSH_AUTH_SOCK environment variables\n- PATH additions for snowflake and tf-plan-analyzer scripts\n- Aliases (test-dc, add-ssh)\n- SSH key auto-loading logic\n- An `sso-login()` function for parallel AWS + Azure SSO authentication\n\nIt is sourced via `/etc/zsh/zshrc` which has `source /etc/zsh/zshrc.mpulse` appended by the Dockerfile RUN command.\n\n### Other Bind Mounts (Not Affected)\n\nThe other bind mounts in docker-compose.yml use either:\n- Named volumes (mpulse-snowflake, mpulse-claudio, etc.) -- no path resolution issue\n- Environment-variable-based host paths (`${CONFIG_HOME:-$HOME}/.aws`, etc.) -- resolved by Docker Compose before passing to Docker\n- The workspace mount (`..:/workspace:cached`) -- directory mount, not file mount; handled correctly by devcontainers\n\nThe `./zshrc` mount is the **only relative-path single-file bind mount**, which is the specific pattern that fails on WSL.\n\n## Desired End State\n\n- The bind mount line is removed from docker-compose.yml\n- The Dockerfile's existing COPY + source approach (already present and correct) becomes the sole mechanism\n- The devcontainer starts successfully on WSL Docker Desktop\n- The zshrc customizations are applied identically (they are baked into the image)\n- The comment about \"live-editable\" is updated to reflect the new approach\n\n## Scope\n\n### In Scope\n- Remove 2 lines from `/workspace/mpulse/.devcontainer/docker-compose.yml`: the comment on line 40 and the bind mount on line 41\n- Optionally update the comment in `/workspace/mpulse/.devcontainer/zshrc` (line 2) from \"edit this file, rebuild container to apply\" -- this is already accurate and needs no change\n\n### Out of Scope\n- No changes to the Dockerfile (it already has the correct COPY + source)\n- No changes to the zshrc file content\n- No changes to the entrypoint script\n- No changes to devcontainer.json\n- No other bind mount modifications\n\n## Approach\n\nThe fix is a simple 2-line deletion in docker-compose.yml:\n\n1. Remove line 40: `# Shell customizations (live-editable, no rebuild needed)`\n2. Remove line 41: `- ./zshrc:/etc/zsh/zshrc.mpulse:ro`\n\nThe Dockerfile already handles everything correctly. The COPY on line 107 puts the file in the image, and the RUN on line 108 wires it into the global zshrc. This is the same pattern used by the Claudio base image (Dockerfile.base) which configures all shell customizations at build time via Layer 9 (zsh-in-docker.sh) with no bind mounts.\n\nThe only tradeoff is losing the ability to edit the zshrc without rebuilding. This is acceptable because: (a) zshrc changes are infrequent, (b) rebuilding is fast since Docker caches all layers before line 107, and (c) the current approach prevents the container from starting at all on WSL, which is the primary development platform.\n\n## Key Decisions\n\n1. **COPY-only (recommended) vs. mount-to-user-home workaround**: We could mount to `/home/dev/.zshrc.mpulse` instead of `/etc/zsh/zshrc.mpulse` to avoid the rootfs write issue. However, this adds complexity for no real benefit since the Dockerfile COPY already works. The simplest fix is to just remove the redundant mount.\n\n2. **No fallback mechanism needed**: The Dockerfile COPY is deterministic and works on all platforms (Linux, macOS, WSL). There is no scenario where it would fail if the Dockerfile builds successfully.\n\n3. **Rebuild requirement is acceptable**: The comment \"live-editable, no rebuild needed\" described a convenience that never actually worked on WSL. Requiring a rebuild for zshrc changes aligns with how every other config file in the Dockerfile is handled.\n\n## Acceptance Criteria\n\n1. The bind mount line `./zshrc:/etc/zsh/zshrc.mpulse:ro` is removed from docker-compose.yml\n2. The associated comment is removed or updated\n3. The Dockerfile still contains `COPY zshrc /etc/zsh/zshrc.mpulse` and `RUN echo 'source /etc/zsh/zshrc.mpulse' >> /etc/zsh/zshrc` (no changes)\n4. After rebuilding the container, opening a new zsh shell sources the mpulse zshrc (verify by checking that `direnv` hook is active or that the PATH includes the snowflake/tf-plan-analyzer entries)\n5. The container starts successfully on WSL Docker Desktop without mount errors\n\n## Dependencies and Risks\n\n**Dependencies**: None. This is a self-contained fix with no external dependencies.\n\n**Risks**:\n- **Extremely low risk**: We are removing a redundant mount that shadows an identical COPY. The COPY has been in the Dockerfile since the same commit that added the bind mount (commit 86a5795).\n- **Live-editing loss**: Developers who relied on editing `.devcontainer/zshrc` without rebuilding will now need to rebuild. Since the container was not starting on WSL anyway, this is a net improvement.\n- **No risk of regression**: The zshrc file content is unchanged. The sourcing mechanism (`/etc/zsh/zshrc` sources `/etc/zsh/zshrc.mpulse`) is unchanged. Only the delivery mechanism changes from \"COPY + redundant bind mount\" to \"COPY only\".",
+        "details": "Implementation plan: .taskmaster/plans/task-33-plan.md",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [],
+        "updatedAt": "2026-03-07T14:50:35.677Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-03-06T19:35:22.751Z",
-      "taskCount": 25,
-      "completedCount": 5,
+      "lastModified": "2026-03-07T14:50:35.678Z",
+      "taskCount": 33,
+      "completedCount": 10,
       "tags": [
         "master"
-      ],
-      "created": "2026-03-06T20:27:18.754Z",
-      "description": "Tasks for master context",
-      "updated": "2026-03-07T01:42:54.860Z"
+      ]
     }
   }
 }
