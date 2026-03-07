@@ -53,6 +53,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         # Shell enhancements
         zsh \
         fzf \
+        tmux \
         # Build essentials (for native modules)
         build-essential \
         libpq-dev \

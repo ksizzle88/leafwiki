@@ -40,7 +40,7 @@ if [ -z "$(ls -A "$CLAUDE_HOME" 2>/dev/null)" ]; then
         find "$PROJECT_CLAUDE" -maxdepth 1 -type f ! -name ".credentials.json" -exec cp {} "$CLAUDE_HOME/" \;
 
         # Merge directories (commands, reference, skills) - project files override image defaults
-        for dir in commands reference skills agents; do
+        for dir in commands reference skills agents hooks; do
             if [ -d "$PROJECT_CLAUDE/$dir" ]; then
                 mkdir -p "$CLAUDE_HOME/$dir"
                 cp -r "$PROJECT_CLAUDE/$dir"/* "$CLAUDE_HOME/$dir/" 2>/dev/null || true

@@ -296,6 +296,75 @@ docker compose -p claudio_test up -d --build
 docker compose -p claudio_test down
 ```
 
+## Agent Teams (Parallel Pipeline)
+
+Claudio supports two complementary modes for multi-agent work:
+
+- **`/pipeline`** (sequential): Runs research -> plan -> implement -> review stages one at a time using subagents. Best for standard feature implementation where each stage depends on the previous.
+- **`/pipeline-team`** (parallel): Creates an Agent Team where multiple teammates work simultaneously. Best for tasks with independent sub-problems.
+
+### When to Use Agent Teams vs Subagents
+
+| Criteria | Subagents (/pipeline) | Agent Teams (/pipeline-team) |
+|----------|----------------------|------------------------------|
+| Task type | Linear, dependent stages | Independent, parallelizable work |
+| Communication | Report results back to coordinator only | Teammates message each other directly |
+| Best for | Standard features, bug fixes | Research, multi-module refactoring, parallel review |
+| Token cost | Lower | Higher (each teammate has its own context window) |
+| Coordination | Coordinator manages everything | Shared task list with self-coordination |
+
+### Quick Start
+
+```bash
+# Sequential pipeline (existing)
+/pipeline 7
+
+# Parallel team pipeline (new)
+/pipeline-team 7
+```
+
+### Configuration
+
+Agent Teams are enabled via settings.json:
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+}
+```
+
+The `teammateMode` setting controls display:
+- `"auto"` (default): Uses split panes if inside a tmux session, in-process otherwise
+- `"in-process"`: All teammates in one terminal. Use Shift+Down to cycle.
+- `"tmux"`: Force split-pane mode (requires tmux, which is installed in the base image)
+
+### Quality Gate Hooks
+
+Two hooks enforce basic quality gates for Agent Teams:
+
+- **TeammateIdle** (`.claude/hooks/teammate-idle.sh`): Runs when a teammate is about to go idle. Currently a no-op placeholder for future quality gates.
+- **TaskCompleted** (`.claude/hooks/task-completed.sh`): Runs when a task is marked complete. Currently a no-op placeholder for future quality gates.
+
+These hooks exit with code 2 to block the action and provide feedback to the teammate. Exit 0 allows the action to proceed.
+
+### Team Patterns
+
+Common team structures for different task types:
+
+1. **Research Team** (3-4 teammates): Investigate different aspects of a problem simultaneously
+2. **Implementation Team** (2-4 teammates): Each teammate owns a separate module or file set
+3. **Review Team** (3 teammates): Security, quality, and test coverage reviewers in parallel
+
+### Tips
+
+- Keep teams small: 3-5 teammates is the sweet spot
+- Assign distinct file sets to each teammate to avoid conflicts
+- Use `Ctrl+T` to view the shared task list
+- The lead coordinates everything; interact with the lead to steer the team
+- Clean up the team after the task is complete
+
 ## Troubleshooting
 
 ### Authentication Not Working
