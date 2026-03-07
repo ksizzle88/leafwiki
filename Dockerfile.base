@@ -152,11 +152,13 @@ COPY .devcontainer/install-claudio.sh /usr/local/bin/install-claudio.sh
 COPY .devcontainer/init-firewall.sh /usr/local/bin/init-firewall.sh
 COPY .devcontainer/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY cli/scripts/init-claudio.sh /usr/local/bin/init-claudio
+COPY cli/scripts/task-master-wrapper.sh /usr/local/bin/task-master
 RUN chmod +x /usr/local/bin/init-claude-settings.sh \
     && chmod +x /usr/local/bin/install-claudio.sh \
     && chmod +x /usr/local/bin/init-firewall.sh \
     && chmod +x /usr/local/bin/docker-entrypoint.sh \
-    && chmod +x /usr/local/bin/init-claudio
+    && chmod +x /usr/local/bin/init-claudio \
+    && chmod +x /usr/local/bin/task-master
 
 # Layer 12: Sudoers for firewall (passwordless)
 RUN echo "${DEV_USER} ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" \
