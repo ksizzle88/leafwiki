@@ -1,14 +1,18 @@
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 .dev/*
 
 # Node
 node_modules/
+dist/
+build/
 
 # Python
 __pycache__/
 *.pyc
+.venv/
 
 # VS Code
 .vscode/
@@ -21,7 +25,7 @@ workspace/*
 docs/external-repos/
 
 # Old exploration output
-exploration-logging-strategy-2026-01-14/
+exploration-*/
 
 # mpulse - only devcontainer is committed, rest lives in container volumes
 mpulse/*
@@ -42,6 +46,8 @@ docker-compose.override.yml
 
 # Environment configuration
 .env
+.env.local
+.env.*.local
 
 # Logs
 logs
@@ -58,6 +64,13 @@ dev-debug.log
 *.njsproj
 *.sln
 *.sw?
+
+# Build and test output
+coverage/
+.pytest_cache/
+.nyc_output/
+*.tmp
+*.temp
 
 # Taskmaster ephemeral state
 .taskmaster/state.json
