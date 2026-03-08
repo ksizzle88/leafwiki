@@ -25,11 +25,11 @@
         "id": "3",
         "title": "Commit mpulse devcontainer changes",
         "description": "Modified files: mpulse/.devcontainer/Dockerfile, docker-compose.yml, docker-entrypoint.sh. Review what changed, determine if ready to commit, and commit on develop.",
-        "status": "review",
+        "status": "done",
         "priority": "medium",
         "dependencies": [],
         "subtasks": [],
-        "updatedAt": "2026-03-06T18:25:14.316Z"
+        "updatedAt": "2026-03-07T19:02:17.505Z"
       },
       {
         "id": "4",
@@ -44,13 +44,14 @@
       {
         "id": "5",
         "title": "Triage untracked directories — commit, gitignore, or remove",
-        "description": "Several untracked directories need decisions: claude_for_dummies/ (training docs?), docs/external-repos/ (repo documentation), exploration-logging-strategy-2026-01-14/ (old exploration output), mpulse/.claude/ (project settings), mpulse/tasks/ (old manual task system). For each: commit if valuable, add to .gitignore if local-only, or remove if stale.",
-        "status": "pending",
+        "description": "Several untracked directories need decisions: claude_for_dummies/ (training docs?), docs/external-repos/ (repo documentation), exploration-logging-strategy-2026-01-14/ (old exploration output), mpulse/.claude/ (project settings), mpulse/tasks/ (old manual task system). For each: commit if valuable, add to .gitignore if local-only, or remove if stale.\n\nAudit gitignore config and untracked directories. Key findings: (1) .taskmaster/state.json is tracked but gitignored - needs git rm --cached. (2) exploration-logging-strategy-2026-01-14/ is stale exploration output - delete. (3) mpulse/tasks/ is old manual task system superseded by Taskmaster - delete. (4) Root-level stale files (feature-request-container-build-push.md, test-sync.sh, .setup-security.md) should be relocated to docs/ or .agents/. (5) workspace/.gitignore is empty and redundant - remove. (6) Add .env.local pattern to root gitignore. (7) All currently ignored directories are properly handled. (8) No sensitive files are tracked. The .env file on disk has real secrets but was never committed.\n\nFull specification for task 5. Goal: Audit the repository gitignore configuration and untracked directories. Ensure all gitignore rules are effective, stale directories are triaged, and patterns are complete. \n\nCURRENT STATE: Root .gitignore has 63 lines covering OS, Node, Python, VS Code, Workspace, External repo docs, Old exploration output, mpulse, Claude local settings, Devcontainer local overrides, Docker Compose overrides, Environment, Logs, Editor files, and Taskmaster ephemeral state. Nested gitignore files exist at mpulse/.gitignore, mpulse/.devcontainer/.gitignore, workspace/.gitignore, and .sandbox/skills/.gitignore.\n\nISSUES FOUND:\n1. .taskmaster/state.json is tracked but has a gitignore entry (line 63). The gitignore entry was added AFTER the file was committed, so it has no effect. Needs git rm --cached.\n2. exploration-logging-strategy-2026-01-14/ exists and is properly ignored but is stale output from a parallel-exploration skill run on Jan 14. Should be deleted.\n3. mpulse/tasks/ exists and is properly ignored but contains the old manual folder-based task system (predecessor to Taskmaster). Should be deleted.\n4. Root-level stale files: feature-request-container-build-push.md (completed feature request at root, should move to .agents/feature-requests/), test-sync.sh (early dev test script), .setup-security.md (security checklist that could move to docs/).\n5. workspace/.gitignore is an empty file - redundant since root gitignore handles workspace/* and workspace/.gitkeep is the marker file.\n6. Missing pattern: .env.local and .env.*.local not in root .gitignore.\n7. .agents/reviews/ directory is empty - no action needed but worth noting.\n8. claude_for_dummies/ mentioned in original task does NOT EXIST on this branch.\n9. If feature-request-container-build-push.md is moved, the relative link in .agents/plans/container-build-push-implementation.md line 3 must be updated.\n\nCLEAN ITEMS (no action needed): .env on disk has real secrets but is properly gitignored and never committed. All tracked files are appropriate. .claude/ directory is intentionally tracked. mpulse/.claude/ is properly ignored by mpulse/* pattern. docs/external-repos/ is properly ignored. mpulse/logs/ is properly ignored by logs pattern.\n\nACCEPTANCE CRITERIA: (1) git ls-files .taskmaster/state.json returns empty. (2) exploration-logging-strategy-2026-01-14/ deleted. (3) mpulse/tasks/ deleted. (4) Root stale files addressed. (5) No untracked non-ignored files in git status. (6) All ignore patterns effective.\n\nRISKS: Moving feature-request-container-build-push.md breaks a relative link in .agents/plans/container-build-push-implementation.md. Deleting mpulse/tasks/ is safe since it is untracked. The .taskmaster/state.json untracking will show as a deleted file in the commit diff.\n\nResearch complete. Full inventory of all untracked directories with triage recommendations. See detailed specification in coordinator summary.\n\nReplace the description with this specification: Goal: Audit the entire .gitignore configuration to ensure all files that should be ignored ARE ignored, no files are tracked that should not be, there are no stale tracked files from old workflows, and the .gitignore is complete for this project type. Current State: The root .gitignore has 63 lines covering OS files, Node, Python, VS Code, workspace directory, docs/external-repos, exploration output, mpulse, Claude local settings, devcontainer local overrides, docker-compose overrides, .env, logs, editor files, and .taskmaster/state.json. Issues Found: (1) .taskmaster/state.json is tracked despite being in .gitignore - requires git rm --cached. (2) mpulse/CLAUDE.md and mpulse/.gitignore are tracked but match mpulse/* pattern - need explicit negation patterns or untracking. (3) Legacy .agents/ directory is tracked but obsolete (replaced by .taskmaster). (4) Legacy .claude-dev/ directory is tracked - unclear if still used. (5) Root-level stale files: feature-request-container-build-push.md, test-sync.sh, .setup-security.md. (6) Missing common patterns: .venv/, venv/, dist/, build/, coverage/, .pytest_cache/, .nyc_output/, *.tmp, *.temp, desktop.ini. (7) Exploration output uses exact directory name instead of wildcard pattern. Desired End State: Every gitignored file is also not tracked, explicit negation patterns for intentional exceptions, legacy files triaged, common patterns added, wildcard for exploration output, well-commented sections. Key Decisions: Should mpulse/CLAUDE.md stay tracked? Should .agents/ be removed? Should .claude-dev/ be removed? Where should root-level stale markdown files go?\n\nResearched and triaged. Confirmed actions: (1) git rm --cached .taskmaster/state.json, (2) delete feature-request-container-build-push.md, (3) delete test-sync.sh, (4) move .setup-security.md to .claude/reference/, (5) delete .agents/ directory entirely, (6) add missing gitignore patterns (.env.local, .env.*.local, .venv/, dist/, build/, coverage/, .pytest_cache/, .nyc_output/, *.tmp, *.temp, desktop.ini), (7) change exploration-logging-strategy-2026-01-14/ gitignore rule to exploration-*/ wildcard, (8) delete empty workspace/.gitignore. Leave alone: docs/external-repos/ (keep ignored), all mpulse/ and workspace/ dirs (keep ignored), .claude-dev/ (keep as-is), .sandbox/ (keep ignored). Acceptance criteria: all 8 actions completed, git status clean, no unintended changes to tracked files.\n\nImplementation plan created at .taskmaster/plans/task-5-plan.md. 14 files to change across 7 implementation steps. No open questions.\n\nReplace the entire description with this clean version: Triage untracked directories and clean up gitignore. Confirmed actions: (1) git rm --cached .taskmaster/state.json, (2) delete feature-request-container-build-push.md, (3) delete test-sync.sh, (4) move .setup-security.md to .claude/reference/, (5) delete .agents/ directory, (6) add missing gitignore patterns (.env.local, .env.*.local, .venv/, dist/, build/, coverage/, .pytest_cache/, .nyc_output/, *.tmp, *.temp, desktop.ini), (7) change exploration gitignore rule to exploration-*/ wildcard, (8) delete empty workspace/.gitignore. Leave alone: docs/external-repos/, mpulse/*, workspace/*, .claude-dev/, .sandbox/. Status: research complete, ready for implementation.\n\nImplementation plan created at .taskmaster/plans/task-5-plan.md. 13 files to change across 7 implementation steps. No open questions.\n\nImplementation plan created at .taskmaster/plans/task-5-plan.md. 8 confirmed actions: (1) git rm --cached state.json, (2) delete feature-request-container-build-push.md, (3) delete test-sync.sh, (4) git mv .setup-security.md to .claude/reference/, (5) git rm -r .agents/, (6) update .gitignore with missing patterns + exploration wildcard, (7) delete empty workspace/.gitignore, (8) stage and commit. Plan has 8 implementation steps, 7 files to change (10 file operations), 0 open questions.",
+        "status": "done",
         "priority": "low",
         "dependencies": [
           "4"
         ],
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-03-07T23:38:36.587Z"
       },
       {
         "id": "6",
@@ -128,25 +129,25 @@
         "id": "13",
         "title": "Fix Claude credential persistence in mpulse devcontainer",
         "description": "Claude credentials don't survive container rebuilds. Two root causes: (1) claudio-shared volume is declared without external:true in docker-compose.yml, so Docker creates an isolated project-scoped volume instead of using the global shared one from create-volumes.sh — cross-container credential sync never happens. (2) init-claudio's symlink from ~/.claude to ~/.claudio/claude fails silently because the base image creates ~/.claude as a real directory, and the || true swallows the error — credentials go to ephemeral container filesystem. Fix: make claudio-shared external in docker-compose.yml, add ~/.claude symlink setup in entrypoint before init-claudio, log failures instead of swallowing them, add initializeCommand warning in devcontainer.json.",
-        "status": "review",
+        "status": "done",
         "priority": "high",
         "dependencies": [
           "9"
         ],
         "subtasks": [],
-        "updatedAt": "2026-03-06T18:25:23.303Z"
+        "updatedAt": "2026-03-07T19:03:28.005Z"
       },
       {
         "id": "14",
         "title": "Fix home directory permissions for credential caching",
         "description": "Snowflake CLI (snow) refuses to cache auth tokens because ~/.cache/snowflake/ has 755 permissions instead of required 700. The snow CLI's bundled snowflake-connector-python 3.18.0 has strict FileTokenCache permission validation, while dbt's connector 3.14.0 is lenient. Broader issue: Docker named volumes mount with root:root 755 defaults, WSL bind mounts inherit Windows permissions. Need to audit and fix permissions for all volume-mounted home directories in the entrypoint, with special care for ~/.local/bin executables. Quick fix: add find ~/.cache -type d -exec chmod 700 in entrypoint. Comprehensive fix: expand permission loop for all home subdirectories.",
-        "status": "review",
+        "status": "done",
         "priority": "high",
         "dependencies": [
           "9"
         ],
         "subtasks": [],
-        "updatedAt": "2026-03-06T18:25:33.286Z"
+        "updatedAt": "2026-03-07T19:03:48.849Z"
       },
       {
         "id": "15",
@@ -198,11 +199,11 @@
         "description": "The mpulse devcontainer should automatically set git config --global user.email and git config --global user.name based on values from the .env file (GIT_USER_EMAIL, GIT_USER_NAME). Currently these aren't being set, so git commits inside the container may use wrong or missing identity. Options: (1) Set them in the docker-entrypoint.sh using the environment variables that docker-compose passes from .env, (2) Use the existing Claudio init-claude-settings.sh GIT_USE_PROJECT_CONFIG=true path which already reads these vars, (3) Add them as ENV directives in docker-compose.yml so they're available at runtime. The entrypoint is probably the right place since it already handles other environment setup. Ensure it doesn't overwrite if the user has already configured git identity manually in the container.",
         "details": "",
         "testStrategy": "",
-        "status": "review",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-03-06T18:25:41.783Z"
+        "updatedAt": "2026-03-07T19:04:02.988Z"
       },
       {
         "id": "20",
@@ -371,13 +372,23 @@
         "priority": "high",
         "subtasks": [],
         "updatedAt": "2026-03-07T14:50:35.677Z"
+      },
+      {
+        "id": "34",
+        "title": "Add structured task description schema for agent pipeline",
+        "description": "Add dedicated sections to the task schema for each agent role: title/summary (coordinator), detailed specification (researcher), plan reference (planner), test reference (tester), and appendable comments per section. Explore options: (1) update tasks.json schema directly, (2) extend task-master update-task with a --section parameter and file input, (3) use hooks to auto-populate. Goal: prevent agents from trashing descriptions by appending repeatedly, give each role a clean place for its work. Part of epic #24 (Persistent task board).",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": [],
+        "subtasks": [],
+        "updatedAt": "2026-03-08T14:35:00Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-03-07T17:54:08.086Z",
+      "lastModified": "2026-03-07T23:38:36.587Z",
       "taskCount": 33,
-      "completedCount": 11,
+      "completedCount": 16,
       "tags": [
         "master"
       ]
