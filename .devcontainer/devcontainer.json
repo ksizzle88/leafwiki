@@ -4,6 +4,8 @@
     "service": "devcontainer",
     "workspaceFolder": "/workspace",
     "remoteUser": "dev",
+    // Generate build provenance in .env before docker-compose build
+    "initializeCommand": ".devcontainer/generate-build-env.sh",
     // Docker-outside-of-docker for container management
     "features": {
         "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
