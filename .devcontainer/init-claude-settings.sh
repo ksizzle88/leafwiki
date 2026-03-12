@@ -26,10 +26,19 @@ mkdir -p "$CLAUDE_HOME"
 if [ -z "$(ls -A "$CLAUDE_HOME" 2>/dev/null)" ]; then
     echo "First run detected for this container."
 
-    # Step 1: Copy image defaults (shared commands, reference, settings)
+    # Step 1: Copy image defaults (top-level config files only to avoid
+    # duplicating skills/commands/agents/hooks/reference that the project provides)
     if [ -d "$IMAGE_DEFAULTS" ] && [ -n "$(ls -A "$IMAGE_DEFAULTS" 2>/dev/null)" ]; then
         echo "Copying shared defaults from image ($IMAGE_DEFAULTS)..."
-        cp -r "$IMAGE_DEFAULTS"/* "$CLAUDE_HOME/"
+        # Copy top-level config files (settings.json, etc.)
+        find "$IMAGE_DEFAULTS/" -maxdepth 1 -type f -exec cp {} "$CLAUDE_HOME/" \; 2>/dev/null || true
+
+        # Copy default subdirectories ONLY if not provided by project workspace
+        for dir in commands reference skills agents hooks; do
+            if [ ! -d "$PROJECT_CLAUDE/$dir" ] && [ -d "$IMAGE_DEFAULTS/$dir" ]; then
+                cp -r "$IMAGE_DEFAULTS/$dir" "$CLAUDE_HOME/" 2>/dev/null || true
+            fi
+        done
     fi
 
     # Step 2: Overlay project-specific .claude/ (overrides image defaults)

@@ -20,9 +20,18 @@ if [ ! -f "$CLAUDIO_HOME/.initialized" ]; then
     mkdir -p "$CLAUDE_DIR"
     mkdir -p "$CLAUDIO_HOME/bash-history"
 
-    # Copy defaults from image
+    # Copy defaults from image (top-level files only to avoid duplicating
+    # skills/commands/agents/hooks/reference that the project workspace provides)
     if [ -d "$DEFAULTS/.claude" ]; then
-        cp -r "$DEFAULTS/.claude/"* "$CLAUDE_DIR/" 2>/dev/null || true
+        # Copy top-level config files (settings.json, etc.)
+        find "$DEFAULTS/.claude/" -maxdepth 1 -type f -exec cp {} "$CLAUDE_DIR/" \; 2>/dev/null || true
+
+        # Copy default subdirectories ONLY if not provided by project workspace
+        for dir in commands reference skills agents hooks; do
+            if [ ! -d "/workspace/.claude/$dir" ] && [ -d "$DEFAULTS/.claude/$dir" ]; then
+                cp -r "$DEFAULTS/.claude/$dir" "$CLAUDE_DIR/" 2>/dev/null || true
+            fi
+        done
         echo "Copied defaults from image"
     fi
 
