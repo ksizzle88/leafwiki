@@ -1,36 +1,36 @@
 ---
-description: Expand a Taskmaster task's brief description into a comprehensive, non-technical specification
-argument-hint: <task-id>
-allowed-tools: Bash(task-master *), Read, Glob, Grep, WebSearch, WebFetch, Bash(jq *), Bash(ls *), Write(.taskmaster/**), Edit(.taskmaster/**)
+description: Expand a GitHub Issue's brief description into a comprehensive, non-technical specification
+argument-hint: <issue-number>
+allowed-tools: Bash(gh issue *), Read, Glob, Grep, WebSearch, WebFetch, Bash(jq *), Bash(ls *), Write(.taskmaster/**), Edit(.taskmaster/**)
 ---
 
-# Flesh Out: Expand Task into Full Specification
+# Flesh Out: Expand Issue into Full Specification
 
 ## Objective
 
-Take a brief Taskmaster task (identified by `$ARGUMENTS`) and expand its title and description into a comprehensive, non-technical task specification. The result is saved back to Taskmaster as the updated task description.
+Take a brief GitHub Issue (identified by `$ARGUMENTS`) and expand its title and description into a comprehensive, non-technical task specification. The result is saved back to the issue as the updated body.
 
 ## Process
 
 ### 1. Retrieve the Task
 
-Run the following to get the task details:
+Run the following to get the issue details:
 
 ```bash
-task-master show $ARGUMENTS
+gh issue view $ARGUMENTS --json number,title,body,labels,state
 ```
 
-Read the task's title, description, status, dependencies, and any existing subtasks carefully.
+Read the issue's title, body, status labels, dependencies, and any existing subtasks carefully.
 
-### 2. Gather Context from Related Tasks
+### 2. Gather Context from Related Issues
 
-If the task has dependencies or is depended upon by other tasks, retrieve those as well:
+If the issue has dependencies or is depended upon by other issues, retrieve those as well:
 
 ```bash
-task-master show <dependency-id>
+gh issue view <dependency-number>
 ```
 
-Understanding the surrounding tasks helps produce a specification that fits within the broader project plan. Also review any relevant project files (CLAUDE.md, PRD, etc.) if they would help clarify what this task is about.
+Understanding the surrounding issues helps produce a specification that fits within the broader project plan. Also review any relevant project files (CLAUDE.md, PRD, etc.) if they would help clarify what this task is about.
 
 ### 3. Analyze What Exists
 
@@ -79,18 +79,18 @@ Checklist of verifiable conditions that must be true when the task is done
 
 ### 5. Save the Expanded Specification
 
-Update the task in Taskmaster with the fleshed-out description. Pass the entire expanded specification as the prompt:
+Update the issue on GitHub with the fleshed-out description. Pass the entire expanded specification as the body:
 
 ```bash
-task-master update-task --id=$ARGUMENTS --prompt="<the full expanded specification text>"
+gh issue edit $ARGUMENTS --body "<the full expanded specification text>"
 ```
 
 ### 6. Confirm the Update
 
-After updating, re-read the task to verify the update was applied:
+After updating, re-read the issue to verify the update was applied:
 
 ```bash
-task-master show $ARGUMENTS
+gh issue view $ARGUMENTS
 ```
 
 ## Writing Guidelines
@@ -105,6 +105,6 @@ task-master show $ARGUMENTS
 ## Output
 
 After completing the update, provide:
-1. A brief confirmation that the task was updated
-2. The task ID and title for reference
+1. A brief confirmation that the issue was updated
+2. The issue number and title for reference
 3. A one-sentence summary of the expanded specification

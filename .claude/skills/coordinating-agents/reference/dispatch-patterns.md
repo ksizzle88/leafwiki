@@ -38,28 +38,28 @@ Task(reviewer): "Review the JWT changes in src/auth/"
 
 For work too large for a single session or spanning multiple developers:
 
-### Taskmaster as Shared State
+### GitHub Issues as Shared State
 
 ```bash
-# Session 1: Coordinator creates tasks
-task-master add-task --title "Implement auth" --description "..." --priority high
+# Session 1: Coordinator creates issues
+gh issue create --title "Implement auth" --body "..." --label "priority:high" --label "status:pending"
 
-# Session 2: Worker picks up task
-task-master next
-task-master set-status --id <id> --status in-progress
+# Session 2: Worker picks up issue
+gh issue list --label "priority:high" --label "status:pending" --state open
+gh issue edit <number> --remove-label "status:pending" --add-label "status:in-progress"
 
 # Session 2: Worker completes
-task-master set-status --id <id> --status done
-task-master add-task --title "Review auth implementation" --status todo
+gh issue edit <number> --remove-label "status:in-progress" --add-label "status:done" && gh issue close <number>
+gh issue create --title "Review auth implementation" --label "status:pending"
 ```
 
 ### Handoff Protocol
 
 When passing work between sessions:
-1. Update task description with what was done
-2. Add implementation notes as task comments
+1. Update issue body with what was done
+2. Add implementation notes as issue comments
 3. Reference specific files and line numbers
-4. Set task status to the next appropriate state
+4. Set issue status to the next appropriate state
 
 ## Anti-Patterns
 

@@ -1,14 +1,14 @@
 ---
-description: Run the full task pipeline (research -> plan -> implement -> review) for a Taskmaster task
-argument-hint: <task-id>
-allowed-tools: Agent, Bash(task-master *), Bash(npx task-studio*), Read, Glob, Grep
+description: Run the full task pipeline (research -> plan -> implement -> review) for a GitHub Issue
+argument-hint: <issue-number>
+allowed-tools: Agent, Bash(gh issue *), Bash(gh label *), Read, Glob, Grep
 ---
 
-# Pipeline: Full Task Pipeline for a Taskmaster Task
+# Pipeline: Full Task Pipeline for a GitHub Issue
 
 ## Overview
 
-Run a Taskmaster task through the full agent pipeline. You are the coordinator -- the central hub. All agents report back to you. You review output at each stage before dispatching the next. You never write code directly.
+Run a GitHub Issue through the full agent pipeline. You are the coordinator -- the central hub. All agents report back to you. You review output at each stage before dispatching the next. You never write code directly.
 
 ### Pipeline Stages
 
@@ -23,7 +23,7 @@ Run a Taskmaster task through the full agent pipeline. You are the coordinator -
 
 ```mermaid
 flowchart TD
-    Start(["/pipeline task-id"]) --> Step0["Step 0: Read Task\nset status = in-progress"]
+    Start(["/pipeline issue-number"]) --> Step0["Step 0: Read Issue\nset status = in-progress"]
     Step0 --> SpecCheck{"Spec already\nfleshed out?"}
 
     SpecCheck -- No --> R["Step 1: Researcher\nFlesh out task spec"]
@@ -61,25 +61,25 @@ sequenceDiagram
     participant I as Implementer
     participant V as Reviewer
 
-    U->>C: /pipeline <task-id>
-    C->>C: Read task, set in-progress
+    U->>C: /pipeline <issue-number>
+    C->>C: Read issue, set in-progress
 
-    C->>R: Task ID + description
+    C->>R: Issue number + description
     R-->>C: Fleshed-out spec
     C->>C: Review spec quality
     C->>U: Summary of findings
 
-    C->>P: Task ID + "spec is ready"
+    C->>P: Issue number + "spec is ready"
     P-->>C: Plan file path + summary
     C->>C: Review plan quality
     C->>U: Summary of plan
 
-    C->>I: Task ID + plan file path
+    C->>I: Issue number + plan file path
     I-->>C: Changes summary + verification results
     C->>C: Review implementation
     C->>U: Summary of changes
 
-    C->>V: Task ID + plan + change summary
+    C->>V: Issue number + plan + change summary
     V-->>C: PASS or FAIL + details
     alt PASS
         C->>C: Set status = done
@@ -96,32 +96,32 @@ Each stage is a separate agent dispatch. You wait for each agent to finish, revi
 
 ## Step 0: Read the Task
 
-Before starting the pipeline, load the task and set status.
+Before starting the pipeline, load the issue and set status.
 
 ```bash
-task-master show $ARGUMENTS
+gh issue view $ARGUMENTS --json number,title,body,labels,state
 ```
 
 ```bash
-task-master set-status --id=$ARGUMENTS --status=in-progress
+gh issue edit $ARGUMENTS --remove-label "status:pending" --remove-label "status:blocked" --add-label "status:in-progress"
 ```
 
-Show the user the task title, description, and priority. If the task has dependencies that are not yet `done`, warn the user and ask whether to proceed anyway.
+Show the user the issue title, description, and priority. If the issue has dependencies that are not yet `done`, warn the user and ask whether to proceed anyway.
 
-If the task description is already a comprehensive spec (has Goal, Current State, Acceptance Criteria, etc.), you may skip Step 1 and go directly to Step 2. Tell the user you are skipping research because the spec is already fleshed out.
+If the issue description is already a comprehensive spec (has Goal, Current State, Acceptance Criteria, etc.), you may skip Step 1 and go directly to Step 2. Tell the user you are skipping research because the spec is already fleshed out.
 
 ## Step 1: Researcher
 
 Dispatch `Agent(subagent_type: researcher)` with the following context:
 
-- The task ID: `$ARGUMENTS`
-- The current task title and description
+- The issue number: `$ARGUMENTS`
+- The current issue title and description
 - Instructions: Flesh out the task spec by exploring the codebase and producing a comprehensive specification with these sections: Goal, Current State, Desired End State, Scope, Approach, Key Decisions, Acceptance Criteria, Dependencies & Risks
-- Instructions: Update the task in Taskmaster with the full spec using `task-master update-task`
+- Instructions: Update the issue on GitHub with the full spec using `gh issue edit`
 
 **Review the output.** Read what the researcher returned. Check:
 
-- Did the researcher update the task in Taskmaster?
+- Did the researcher update the issue on GitHub?
 - Does the spec have all required sections (Goal, Current State, Desired End State, Scope, Approach, Key Decisions, Acceptance Criteria, Dependencies & Risks)?
 - Are file paths and code references real (not fabricated)?
 - Are there open questions or gaps that would block planning?
@@ -143,11 +143,11 @@ stateDiagram-v2
 
 Dispatch `Agent(subagent_type: planner)` with the following context:
 
-- The task ID: `$ARGUMENTS`
-- Context: The researcher has fleshed out the full task spec in Taskmaster
-- Instructions: Read the task from Taskmaster, deep-dive into the codebase, and create a detailed implementation plan
+- The issue number: `$ARGUMENTS`
+- Context: The researcher has fleshed out the full task spec on the GitHub Issue
+- Instructions: Read the issue from GitHub, deep-dive into the codebase, and create a detailed implementation plan
 - Instructions: Save the plan to `.taskmaster/plans/task-$ARGUMENTS-plan.md`
-- Instructions: Update the task in Taskmaster to reference the plan file
+- Instructions: Update the issue on GitHub to reference the plan file
 
 **Review the output.** Read the plan file at `.taskmaster/plans/task-$ARGUMENTS-plan.md`. Check:
 
@@ -177,7 +177,7 @@ stateDiagram-v2
 
 Dispatch `Agent(subagent_type: implementer)` with the following context:
 
-- The task ID: `$ARGUMENTS`
+- The issue number: `$ARGUMENTS`
 - The plan file path: `.taskmaster/plans/task-$ARGUMENTS-plan.md`
 - Instructions: Read the full plan, execute each implementation step in order, verify each step, and report back with a summary of all changes made
 - Any relevant context from the researcher or planner stages that might help
@@ -204,15 +204,15 @@ stateDiagram-v2
 
 ## Step 4: Reviewer
 
-Set the task status to `review`:
+Set the issue status to `review`:
 
 ```bash
-task-master set-status --id=$ARGUMENTS --status=review
+gh issue edit $ARGUMENTS --remove-label "status:in-progress" --add-label "status:review"
 ```
 
 Dispatch `Agent(subagent_type: reviewer)` with the following context:
 
-- The task ID: `$ARGUMENTS`
+- The issue number: `$ARGUMENTS`
 - The plan file path: `.taskmaster/plans/task-$ARGUMENTS-plan.md`
 - A summary of what the implementer changed (files created, modified, deleted) and any divergences from the plan
 - Instructions: Review the changes via `git diff`, read changed files in full context, check quality criteria (correctness, security, edge cases, conventions, completeness), and return a PASS or FAIL verdict
@@ -224,7 +224,7 @@ Dispatch `Agent(subagent_type: reviewer)` with the following context:
 Mark the task as done:
 
 ```bash
-task-master set-status --id=$ARGUMENTS --status=done
+gh issue edit $ARGUMENTS --remove-label "status:review" --add-label "status:done" && gh issue close $ARGUMENTS
 ```
 
 Report to the user:
@@ -238,7 +238,7 @@ Report to the user:
 Set status back to in-progress:
 
 ```bash
-task-master set-status --id=$ARGUMENTS --status=in-progress
+gh issue edit $ARGUMENTS --remove-label "status:review" --add-label "status:in-progress"
 ```
 
 Send the reviewer's issue list back to the implementer (Step 3). Include:
@@ -275,7 +275,7 @@ stateDiagram-v2
 - **Wait for each agent.** Always wait for an agent to finish and review its output before dispatching the next stage.
 - **Show progress.** Give the user a brief summary after each stage so they can see what happened and steer if needed. Keep summaries concise -- key outcomes, not full dumps.
 - **Respect user intervention.** If the user speaks up at any point, pause the pipeline and follow their direction. They may want to skip a stage, modify the approach, or stop entirely.
-- **Handle large tasks.** If the task looks too large during Step 0 (many unrelated concerns, multiple features bundled together), recommend breaking it into subtasks using `task-master expand --id=$ARGUMENTS` before starting the pipeline. Ask the user before proceeding.
-- **Keep status accurate.** The task board is the source of truth. Update status at each transition: `in-progress` at start, `review` when the reviewer begins, `done` on pass, back to `in-progress` on fail.
+- **Handle large tasks.** If the issue looks too large during Step 0 (many unrelated concerns, multiple features bundled together), recommend breaking it into sub-issues on GitHub before starting the pipeline. Ask the user before proceeding.
+- **Keep status accurate.** The issue board is the source of truth. Update status at each transition: `in-progress` at start, `review` when the reviewer begins, `done` on pass, back to `in-progress` on fail.
 - **Never write code.** You are the coordinator. All code changes go through the implementer agent. All code review goes through the reviewer agent.
 - **Never skip the reviewer.** Every implementation must be reviewed before the task is marked done, no exceptions.

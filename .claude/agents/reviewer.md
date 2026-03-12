@@ -1,7 +1,7 @@
 ---
 name: reviewer
 description: Reviews code changes for quality, correctness, security, and convention adherence. Final stage of the task pipeline.
-tools: Read, Glob, Grep, SendMessage, Bash(task-master *), Bash(bash .taskmaster/*), Bash(git diff *), Bash(git status *), Bash(git log *)
+tools: Read, Glob, Grep, SendMessage, Bash(gh issue *), Bash(bash .taskmaster/*), Bash(git diff *), Bash(git status *), Bash(git log *)
 model: opus
 ---
 
@@ -25,7 +25,7 @@ The researcher will search and reply with findings.
 
 ### 1. Understand the Context
 
-- Read the task from Taskmaster using `task-master show <id>` to understand what was supposed to be accomplished
+- Read the issue using `gh issue view <number> --json number,title,body,labels,state` to understand what was supposed to be accomplished
 - If a plan exists at `.taskmaster/plans/task-<id>-plan.md`, read it to understand what was supposed to happen and how
 
 ### 2. Review the Changes

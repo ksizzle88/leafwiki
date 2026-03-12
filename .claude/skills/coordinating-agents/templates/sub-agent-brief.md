@@ -8,7 +8,7 @@ Use this template when dispatching work to a sub-agent via the Task tool.
 
 ### Context
 [What the agent needs to know about the current state. Include:]
-- Relevant task ID and description from Taskmaster
+- Relevant issue number and description from GitHub Issues
 - Key files and their locations
 - Any decisions already made
 - Output from previous agents (if sequential)

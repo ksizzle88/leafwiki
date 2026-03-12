@@ -17,7 +17,7 @@
 ## Transitions
 
 ### todo → in-progress
-- **Trigger**: Agent claims the task (`task-master set-status --id <id> --status in-progress`)
+- **Trigger**: Agent claims the issue (`gh issue edit <number> --remove-label "status:pending" --add-label "status:in-progress"`)
 - **Requirements**: No blocking dependencies, task is properly scoped
 - **Action**: Agent begins work
 
@@ -50,28 +50,23 @@ Parent Task (epic-level)
 - Parent moves to "done" only when all children are "done"
 - Children can be worked in parallel unless explicitly blocked
 
-## Taskmaster CLI Reference
+## GitHub Issues CLI Reference
 
 ```bash
-# Create tasks
-task-master add-task --title "..." --description "..." --priority high
-task-master add-subtask --parent <id> --title "..."
-
-# Status management
-task-master set-status --id <id> --status <todo|in-progress|review|done>
-
-# Query tasks
-task-master list                    # All tasks
-task-master list --status todo      # Filter by status
-task-master next                    # AI-recommended next task
-task-master show <id>               # Full task details
-
-# Dependencies
-task-master add-dependency --id <id> --depends-on <other-id>
-
-# Complexity analysis
-task-master analyze-complexity      # AI analyzes task complexity
-task-master expand --id <id>        # Break task into sub-tasks
+# Create issues
+gh issue create --title "..." --body "..." --label "priority:high" --label "status:pending"
+# Create sub-issues (reference parent in body)
+gh issue create --title "..." --body "Sub-issue of #<parent>" --label "status:pending"
+# Status management (swap labels + open/close)
+gh issue edit <number> --remove-label "status:pending" --add-label "status:in-progress"
+gh issue edit <number> --remove-label "status:in-progress" --add-label "status:done" && gh issue close <number>
+# Query issues
+gh issue list --state all --json number,title,labels    # All issues
+gh issue list --label "status:pending" --state open     # Filter by status
+gh issue list --label "priority:high" --state open      # Filter by priority
+gh issue view <number>                                  # Full issue details
+# Dependencies (add to issue body)
+# Edit issue body to include "Depends on #<number>"
 ```
 
 ## Best Practices

@@ -1,7 +1,7 @@
 ---
 name: implementer
 description: Executes implementation plans or ad-hoc coding tasks. Third stage of the task pipeline.
-tools: Read, Edit, Write, Bash, Glob, Grep, SendMessage, Bash(task-master *)
+tools: Read, Edit, Write, Bash, Glob, Grep, SendMessage, Bash(gh issue *)
 model: opus
 permissionMode: acceptEdits
 ---
@@ -47,7 +47,7 @@ When there is no plan file, or when given work without a task ID:
 - Keep changes focused and minimal. Do not refactor unrelated code.
 - Follow existing patterns and conventions in the codebase.
 - Always verify your changes compile, build, or pass tests before reporting success.
-- Do NOT update task status -- the coordinator does that after the reviewer passes. Your job is to make changes and report back.
+- Do NOT update issue status -- the coordinator does that after the reviewer passes. Your job is to make changes and report back.
 - Do not spawn other agents. Report back to the coordinator. You can message the researcher for lookups.
 - If you encounter a problem that makes the plan unworkable, stop and report back to the coordinator with a clear explanation of the blocker.
 

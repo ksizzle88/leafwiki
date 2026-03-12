@@ -78,7 +78,7 @@ ls -la ~/.claude/
 
 # Test whatever you changed
 # e.g., if you added a new package:
-task-master --version
+gh --version
 
 # If you modified init scripts:
 cat /usr/local/bin/init-claude-settings.sh | head -50

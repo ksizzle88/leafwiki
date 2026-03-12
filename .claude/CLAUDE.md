@@ -298,10 +298,10 @@ docker compose -p claudio_test down
 
 ## Task Pipeline (`/do-task`)
 
-Run any Taskmaster task through a parallel agent team pipeline:
+Run any GitHub Issue through a parallel agent team pipeline:
 
 ```bash
-/do-task <task-id>
+/do-task <issue-number>
 ```
 
 ### Stages

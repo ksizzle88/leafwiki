@@ -1,35 +1,35 @@
 ---
-description: Create a detailed technical implementation plan for a Taskmaster task
-argument-hint: <task-id>
-allowed-tools: Bash(task-master *), Read, Glob, Grep, WebSearch, WebFetch, Bash(jq *), Bash(ls *), Bash(docker *), Bash(git log *), Bash(git diff *), Bash(git show *), Write(.taskmaster/**), Edit(.taskmaster/**)
+description: Create a detailed technical implementation plan for a GitHub Issue
+argument-hint: <issue-number>
+allowed-tools: Bash(gh issue *), Read, Glob, Grep, WebSearch, WebFetch, Bash(jq *), Bash(ls *), Bash(docker *), Bash(git log *), Bash(git diff *), Bash(git show *), Write(.taskmaster/**), Edit(.taskmaster/**)
 ---
 
-# Plan: Technical Implementation Plan for a Taskmaster Task
+# Plan: Technical Implementation Plan for a GitHub Issue
 
 ## Objective
 
-Take a Taskmaster task (identified by `$ARGUMENTS`) and produce a thorough, engineer-grade implementation plan. This is NOT a product spec -- it is a real build plan. The output should contain enough detail that a separate implementer agent (or engineer) can execute every step without doing additional research.
+Take a GitHub Issue (identified by `$ARGUMENTS`) and produce a thorough, engineer-grade implementation plan. This is NOT a product spec -- it is a real build plan. The output should contain enough detail that a separate implementer agent (or engineer) can execute every step without doing additional research.
 
-The finished plan is saved to `.taskmaster/plans/task-<id>-plan.md` and the task description is updated to reference it.
+The finished plan is saved to `.taskmaster/plans/task-<id>-plan.md` and the issue is updated to reference it.
 
 ## Process
 
 ### Phase 1: Understand the Task
 
-**1.1 Read the task itself:**
+**1.1 Read the issue itself:**
 
 ```bash
-task-master show $ARGUMENTS
+gh issue view $ARGUMENTS --json number,title,body,labels,state
 ```
 
-Capture the task's title, description, status, priority, dependencies, and subtasks.
+Capture the issue's title, body, status labels, priority labels, and any cross-references.
 
-**1.2 Read dependent and blocking tasks:**
+**1.2 Read dependent and blocking issues:**
 
-For every task listed as a dependency or dependent, retrieve it:
+For every issue referenced as a dependency, retrieve it:
 
 ```bash
-task-master show <dependency-id>
+gh issue view <dependency-number>
 ```
 
 Understand what work comes before and after this task, and what assumptions those tasks make.
@@ -37,7 +37,7 @@ Understand what work comes before and after this task, and what assumptions thos
 **1.3 Read project context:**
 
 - Read the project's `CLAUDE.md` for architecture, conventions, and key decisions.
-- Read any PRD, spec, or planning documents referenced by the task or found in `.taskmaster/`, `docs/`, or the repo root.
+- Read any PRD, spec, or planning documents referenced by the issue or found in `.taskmaster/`, `docs/`, or the repo root.
 - Read relevant configuration files (`devcontainer.json`, `docker-compose.yml`, `Dockerfile.*`, `package.json`, `pyproject.toml`, etc.) to understand the project's tooling and structure.
 
 ### Phase 2: Research the Codebase
@@ -169,18 +169,18 @@ Anything that could not be resolved during planning and needs human input before
 
 Save the full plan to `.taskmaster/plans/task-$ARGUMENTS-plan.md` using Write. Create the `.taskmaster/plans/` directory if it does not exist.
 
-**5.2 Update the task in Taskmaster:**
+**5.2 Update the issue on GitHub:**
 
-Add a reference to the plan file in the task description:
+Add a reference to the plan file as a comment on the issue:
 
 ```bash
-task-master update-task --id=$ARGUMENTS --prompt="Implementation plan created. See .taskmaster/plans/task-$ARGUMENTS-plan.md for the full technical plan including research findings, file change list, ordered implementation steps, testing strategy, and risk analysis."
+gh issue comment $ARGUMENTS --body "Implementation plan created. See .taskmaster/plans/task-$ARGUMENTS-plan.md for the full technical plan including research findings, file change list, ordered implementation steps, testing strategy, and risk analysis."
 ```
 
 **5.3 Confirm and re-read:**
 
 ```bash
-task-master show $ARGUMENTS
+gh issue view $ARGUMENTS
 ```
 
 Verify the update was applied.
@@ -197,7 +197,7 @@ Verify the update was applied.
 
 After completing the plan, provide:
 
-1. The task ID and title
+1. The issue number and title
 2. The path to the saved plan file
 3. A brief summary of the approach (2-3 sentences)
 4. The number of files to change and implementation steps

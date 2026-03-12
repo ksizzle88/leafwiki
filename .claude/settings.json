@@ -7,7 +7,7 @@
       "Bash(docker:*)",
       "Bash(ls:*)",
       "Bash(find:*)",
-      "Bash(task-master:*)",
+      "Bash(gh:*)",
       "Bash(REGISTRY_ENABLED=false /workspace/.git/hooks/pre-push)"
     ]
   },
@@ -15,6 +15,28 @@
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/fetch-usage.sh > /dev/null 2>&1 &"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/fetch-usage.sh > /dev/null 2>&1 &"
+          }
+        ]
+      }
+    ],
     "TeammateIdle": [
       {
         "hooks": [
@@ -38,7 +60,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "~/.claude/statusline.sh"
+    "command": "bash ~/.claude/statusline-command.sh"
   },
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true

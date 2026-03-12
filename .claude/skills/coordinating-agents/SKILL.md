@@ -10,20 +10,20 @@ This skill provides the orchestration knowledge for the coordinator agent and an
 
 ## Reading the Task Board
 
-Use Taskmaster MCP (automatically available via `.claude/mcp.json`) or the CLI:
+Use the GitHub CLI to manage the issue board:
 
 ```bash
-# List all tasks
-task-master list
+# List all open issues
+gh issue list --state open --json number,title,labels
 
-# List tasks by status
-task-master list --status in-progress
+# List issues by status
+gh issue list --label "status:in-progress" --state open
 
-# Get task details
-task-master show <task-id>
+# Get issue details
+gh issue view <issue-number> --json number,title,body,labels,state
 
-# Get next recommended task
-task-master next
+# List by priority
+gh issue list --label "priority:high" --state open
 ```
 
 ## Breaking Work Into Sub-Tasks
@@ -33,11 +33,11 @@ When a task is too large for a single agent:
 1. Analyze the parent task scope
 2. Identify independent work streams (can run in parallel)
 3. Identify dependent work streams (must run sequentially)
-4. Create sub-tasks via Taskmaster:
+4. Create sub-issues on GitHub:
 
 ```bash
-task-master add-subtask --parent <id> --title "Research auth patterns" --description "..."
-task-master add-subtask --parent <id> --title "Implement auth middleware" --description "..."
+gh issue create --title "Research auth patterns" --body "Sub-issue of #<parent-number>\n\n<description>" --label "status:pending" --label "priority:high"
+gh issue create --title "Implement auth middleware" --body "Sub-issue of #<parent-number>\n\n<description>" --label "status:pending" --label "priority:high"
 ```
 
 ## Dispatching to Agents
@@ -58,9 +58,9 @@ See `reference/dispatch-patterns.md` for detailed patterns.
 
 For work that spans multiple Claude Code sessions:
 
-1. **Taskmaster as shared board** — all agents read/write the same `.taskmaster/` directory
-2. **Status updates** — each agent updates task status when starting/completing work
-3. **Handoff notes** — use task descriptions to pass context between sessions
+1. **GitHub Issues as shared board** — all agents read/write via the `gh` CLI against the same repository
+2. **Status updates** — each agent updates issue status when starting/completing work
+3. **Handoff notes** — use issue comments to pass context between sessions
 
 ## Agent Selection Guide
 
@@ -73,32 +73,25 @@ For work that spans multiple Claude Code sessions:
 ## Workflow Pattern
 
 ```
-1. Read board → pick highest-priority task
-2. Analyze task → break into sub-tasks if needed
+1. Read board → pick highest-priority issue
+2. Analyze issue → break into sub-issues if needed
 3. Dispatch researcher → gather context
 4. Dispatch implementer → make changes (with researcher context)
 5. Dispatch reviewer → verify changes
 6. If reviewer finds issues → back to implementer
-7. Update task status → move to done
+7. Update issue status → move to done
 ```
 
 ## Integration with Existing Commands
 
 The coordinating workflow complements existing slash commands:
-- `/plan-feature` — generates the plan that becomes Taskmaster tasks
+- `/plan-feature` — generates the plan that becomes GitHub Issues
 - `/code-review` — can be used by the reviewer agent
 - `/commit` — implementer uses after changes pass review
 
-## Task Studio (Visual Board)
+## Visual Board
 
-Launch the Kanban UI for visual task management:
-
-```bash
-npx task-studio@latest
-# Opens at http://localhost:5565
-```
-
-Columns: Todo → In Progress → Review → Done
+The GitHub Issues web UI at the repository's Issues tab serves as the visual task board. Filter by labels (`status:pending`, `status:in-progress`, etc.) to view tasks by status.
 
 ## Reference
 

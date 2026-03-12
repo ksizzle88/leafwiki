@@ -320,13 +320,14 @@
       {
         "id": "29",
         "title": "Phase 2: Migrate task management to GitHub Issues/Projects",
-        "description": "Replace Taskmaster with GitHub Issues/Projects for task management. Create a task-master-compatible CLI wrapper around gh issue and gh project commands so the same interface works. Map: task-master add-task → gh issue create, task-master list → gh issue list, task-master set-status → gh issue edit (labels), task-master show → gh issue view, update-task → gh issue comment (append) or gh issue edit (replace). Kanban via GitHub Projects board. Depends on Phase 1 wrapper being in place so migration is just swapping the backend. For private/work projects that can't go on public GitHub, evaluate Kanboard (29MB Docker, SQLite, JSON-RPC API) as local alternative. See research: .taskmaster/research/task-management-tool-comparison.md for full tool comparison.",
+        "description": "## SIMPLIFIED SCOPE\n\n**Goal**: Migrate all Taskmaster tasks to GitHub Issues and update the agent workflow to use `gh` CLI directly (no wrapper script).\n\n**What we're doing**:\n1. Create GitHub labels for status (status:pending, status:in-progress, status:review, status:done, status:blocked, status:deferred, status:cancelled) and priority (priority:high, priority:medium, priority:low)\n2. Migrate all 37 tasks from tasks.json to GitHub Issues with correct labels, done tasks as closed issues, dependencies as cross-references in issue body\n3. Update coordinator agent definition to use `gh issue list`, `gh issue view`, `gh issue edit` instead of `task-master` commands\n4. Update slash commands (do-task.md, flesh-out.md, plan.md) to use `gh` CLI\n5. Update other agent definitions (researcher, planner, implementer, reviewer) tool permissions from `Bash(task-master *)` to `Bash(gh issue *)`\n\n**What we're NOT doing**:\n- No wrapper script — agents call `gh` directly\n- No GitHub Projects board (future enhancement)\n- No Kanboard alternative\n- No `task-master next` equivalent (coordinator picks manually)\n- No offline fallback\n\n**Acceptance Criteria**:\n1. All 37 tasks exist as GitHub Issues with correct title, description, labels (status + priority), and state (open/closed)\n2. Dependencies are noted in issue body as 'Depends on #X' cross-references (using new issue numbers)\n3. Coordinator agent definition uses `gh issue` commands instead of `task-master`\n4. All slash commands (do-task, flesh-out, plan) use `gh issue` commands\n5. All agent definitions have updated tool permissions for `gh`\n6. A migration mapping file exists at `.taskmaster/migration/id-map.json` mapping old task IDs to new issue numbers\n\nImplementation plan created at .taskmaster/plans/task-29-plan.md. Plan covers 3 work streams: (1) Create 10 GitHub labels, (2) Migration script to create 37 issues from tasks.json with ID mapping and dependency cross-references, (3) Update 18 files that reference task-master CLI to use gh issue CLI instead. 19 implementation steps in dependency order.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-03-10T14:37:19.957Z"
       },
       {
         "id": "30",
@@ -382,13 +383,43 @@
         "dependencies": [],
         "subtasks": [],
         "updatedAt": "2026-03-08T14:35:00Z"
+      },
+      {
+        "id": "35",
+        "title": "Create comprehensive test suite for task-master CLI",
+        "description": "Write a full test script that exercises all task-master CLI commands and verifies correct behavior. Commands to test: list, show, add-task, update-task, set-status, next, expand, and any other available subcommands. Tests should cover: (1) listing tasks with various filters (--status, --priority), (2) showing individual tasks by ID, (3) adding new tasks with --prompt and --priority, (4) updating task descriptions, (5) setting status transitions (pending -> in-progress -> review -> done), (6) invalid inputs and error handling (bad IDs, missing args), (7) dependency resolution (next command picks correct task), (8) edge cases (empty task list, duplicate IDs). The test script should be idempotent — create its own test data, run checks, and clean up after itself. Save to .taskmaster/tests/task-master-cli-test.sh. This also serves as living documentation for the task-master CLI interface available to agents.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": [],
+        "subtasks": [],
+        "updatedAt": "2026-03-08T14:40:00Z"
+      },
+      {
+        "id": "36",
+        "title": "Update resume for Entyre Care Senior Data Engineer position",
+        "description": "Research the mpulse work at /workspace/mpulse (DPI_Analytics_DBT, python-scripts, data-pipelines, hxi-data-pipelines, hxi-infra, public-powershell) to identify accomplishments, skills, and technologies. Cross-reference with the job description at /workspace/.sandbox/job-search/entyre-care/Job-description.md. Original resume at /workspace/.sandbox/job-search/ks-resume-20241010.md.\n\nResearch agents should each produce a report saved in /workspace/.sandbox/job-search/ with descriptive filenames. Focus areas: (1) data pipeline & ETL work, (2) dbt/SQL/data modeling, (3) infrastructure & DevOps, (4) Python development & testing.\n\nFinal output: a single updated resume at /workspace/.sandbox/job-search/entyre-care/ks-resume-entyre-care.md. Must be no longer than the original. Tailored to the Entyre Care job description. Be accurate — do not embellish.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": [],
+        "subtasks": [],
+        "updatedAt": "2026-03-08T16:26:49.033Z"
+      },
+      {
+        "id": "37",
+        "title": "Create reusable job-search slash commands from ad-hoc resume workflow",
+        "description": "Turn the ad-hoc job search workflow in .sandbox/job-search/ into reusable Claude Code slash commands at .claude/commands/job-search/.\n\nWhat exists today:\n- instructions.md: Master instructions for a 2-step pipeline (research codebase -> tailor resume)\n- Research reports: research-data-pipelines.md, research-dbt-sql-modeling.md, research-infrastructure-devops.md, research-python-automation.md\n- Verification reports: verification-dbt-claims.md, verification-pipeline-claims.md, verification-infra-skills.md\n- Per-company folders with job descriptions and tailored resumes (e.g., entyre-care/)\n- Original resume: ks-resume-20241010.md\n\nDesired design:\n- Command path: .claude/commands/job-search/ with sub-commands (e.g., /job-search/research, /job-search/tailor)\n- Commands accept arguments (company name, path to job description, path to resume, codebase path)\n- Research reports generated once and reused across applications (stored in a configurable workspace directory)\n- Follow existing command frontmatter pattern (description, argument-hint, allowed-tools)\n- All instructions from instructions.md embedded in the command markdown files\n- No personal data hardcoded — resume content, codebase paths provided as arguments or read from config\n- Existing .sandbox/job-search/ content preserved as example/seed data, not deleted",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": [],
+        "subtasks": [],
+        "updatedAt": "2026-03-09T16:25:01.352Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-03-07T23:38:36.587Z",
-      "taskCount": 33,
-      "completedCount": 16,
+      "lastModified": "2026-03-10T14:37:19.959Z",
+      "taskCount": 37,
+      "completedCount": 18,
       "tags": [
         "master"
       ]

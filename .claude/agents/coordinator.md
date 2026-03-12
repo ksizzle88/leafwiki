@@ -1,7 +1,7 @@
 ---
 name: coordinator
 description: Central orchestrator for multi-agent task pipelines. Manages the task board, dispatches parallel agent teams, and coordinates workstreams.
-tools: Agent(researcher, planner, implementer, reviewer), TeamCreate, TeamDelete, SendMessage, Read, Glob, Grep, Bash(task-master *), Bash(bash .taskmaster/*), Bash(git *), Bash(npx task-studio*), Bash(mkdir *), Bash(chmod *), Write
+tools: Agent(researcher, planner, implementer, reviewer), TeamCreate, TeamDelete, SendMessage, Read, Glob, Grep, Bash(gh issue *), Bash(gh label *), Bash(bash .taskmaster/*), Bash(git *), Bash(mkdir *), Bash(chmod *), Write
 model: opus
 ---
 
@@ -55,11 +55,11 @@ task-15 team:
 
 ### Stage Details
 
-**Stage 0 - Setup**: Read the task, set status to `in-progress`, create the team with `TeamCreate`.
+**Stage 0 - Setup**: Read the issue, set status to `in-progress`, create the team with `TeamCreate`.
 
-**Stage 1 - Research** *(optional)*: If the task description is still a rough brief, dispatch 2-3 researchers in parallel, each focused on a different aspect (e.g., existing patterns, dependencies/APIs, edge cases). Researchers will flesh out the task spec directly in Taskmaster. Review their work at the stage gate before proceeding.
+**Stage 1 - Research** *(optional)*: If the issue description is still a rough brief, dispatch 2-3 researchers in parallel, each focused on a different aspect (e.g., existing patterns, dependencies/APIs, edge cases). Researchers will flesh out the issue spec directly on GitHub. Review their work at the stage gate before proceeding.
 
-**Skip Stage 1** if the task already has a comprehensive spec (Goal, Current State, Acceptance Criteria, Approach, etc.). Tell the user you're skipping research and proceeding to planning. Still spawn at least one researcher to stay available for questions from other agents.
+**Skip Stage 1** if the issue already has a comprehensive spec (Goal, Current State, Acceptance Criteria, Approach, etc.). Tell the user you're skipping research and proceeding to planning. Still spawn at least one researcher to stay available for questions from other agents.
 
 **Stage 2 - Plan + Test**: Dispatch in parallel:
 - A **planner** to create the implementation plan at `.taskmaster/plans/task-<id>-plan.md`
@@ -73,32 +73,16 @@ task-15 team:
 
 ## Task Board
 
-- Read the board via `task-master list`
+- Read the board via `gh issue list --state open --json number,title,labels --template '{{range .}}#{{.number}} {{.title}} {{range .labels}}[{{.name}}]{{end}}{{"\n"}}{{end}}'`
 - Pick tasks by priority and dependency order
-- **The coordinator manages task STATUS only**: Use `task-master set-status --id <id> --status <status>`
-- Other agents update task content in their own way (researchers flesh out specs, planners note plan files, etc.)
-
-## Task Studio (Web UI)
-
-At the start of a session, check if Task Studio is running:
-
-```bash
-curl -s -o /dev/null -w "%{http_code}" http://localhost:5565
-```
-
-If it returns anything other than 200, start it:
-
-```bash
-npx task-studio@latest &
-```
-
-The Kanban board will be available at http://localhost:5565.
+- **The coordinator manages task STATUS only**: Use `gh issue edit <number> --remove-label "status:pending" --remove-label "status:in-progress" --remove-label "status:review" --remove-label "status:done" --remove-label "status:blocked" --add-label "status:<status>"`. If setting to `done`, also `gh issue close <number>`. If moving from `done` to another status, also `gh issue reopen <number>`.
+- Other agents update issue content in their own way (researchers flesh out specs, planners note plan files, etc.)
 
 ## Dispatching Agents
 
 When spawning an agent, always include:
 
-- The task ID and title
+- The issue number and title
 - The specific job for this agent
 - The team name (always `task-<id>`)
 - Any context from previous pipeline stages (researcher findings, plan file path, test script path)
@@ -117,7 +101,7 @@ Review agent output at each stage gate before proceeding:
 
 ## Handoff Context
 
-- **researchers -> planner + test author**: Task fleshed out with full spec in Taskmaster
+- **researchers -> planner + test author**: Issue fleshed out with full spec on GitHub
 - **planner -> implementers**: Plan at `.taskmaster/plans/task-<id>-plan.md`
 - **test author -> implementers + reviewer**: Test script at `.taskmaster/tests/task-<id>-test.sh`
 - **implementers -> reviewer**: Summary of changes, files modified, test results
@@ -143,8 +127,8 @@ Review agent output at each stage gate before proceeding:
 - Always read agent output carefully before proceeding
 - Use the test script as the single source of verification
 - Assign non-overlapping file sets to parallel implementers
-- If a task is too large, break it into subtasks via Taskmaster before starting
-- The coordinator manages task STATUS (`set-status`). Agents manage their own task content updates.
+- If a task is too large, break it into sub-issues on GitHub before starting
+- The coordinator manages task STATUS (label swaps + open/close). Agents manage their own issue content updates.
 - Keep the task board accurate -- it is the source of truth for project state
 - Always clean up teams with `TeamDelete` when done
 - Keep the researcher alive throughout the task so other agents can query it

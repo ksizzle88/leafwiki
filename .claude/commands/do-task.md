@@ -1,19 +1,19 @@
 ---
-description: Run a Taskmaster task using parallel agent teams (research, plan, implement, review)
-argument-hint: <task-id>
-allowed-tools: Agent, Bash(task-master *), Bash(npx task-studio*), Bash(bash .taskmaster/*), Bash(chmod *), Bash(git diff*), Bash(git status*), Bash(git log*), Bash(mkdir *), Read, Write, Glob, Grep
+description: Run a GitHub Issue through parallel agent teams (research, plan, implement, review)
+argument-hint: <issue-number>
+allowed-tools: Agent, Bash(gh issue *), Bash(gh label *), Bash(bash .taskmaster/*), Bash(chmod *), Bash(git diff*), Bash(git status*), Bash(git log*), Bash(mkdir *), Read, Write, Glob, Grep
 ---
 
 # Do Task: Parallel Agent Team Pipeline
 
 ## Overview
 
-Run a Taskmaster task through a parallel agent team pipeline. You are the coordinator -- you dispatch agent teams, review their output at each stage gate, and decide whether to proceed, retry, or stop. You never write code directly.
+Run a GitHub Issue through a parallel agent team pipeline. You are the coordinator -- you dispatch agent teams, review their output at each stage gate, and decide whether to proceed, retry, or stop. You never write code directly.
 
 ### Stages
 
 ```
-0. Read Task         -- load task, set in-progress
+0. Read Task         -- load issue, set in-progress
 1. Research Team     -- 2-3 parallel researchers explore different aspects
 2. Plan + Test       -- planner + test author work in parallel
 3. Implement         -- parallel implementers by module, self-verify with test script
@@ -23,17 +23,17 @@ Run a Taskmaster task through a parallel agent team pipeline. You are the coordi
 ## Step 0: Read the Task
 
 ```bash
-task-master show $ARGUMENTS
+gh issue view $ARGUMENTS --json number,title,body,labels,state
 ```
 
 ```bash
-task-master set-status --id=$ARGUMENTS --status=in-progress
+gh issue edit $ARGUMENTS --remove-label "status:pending" --remove-label "status:blocked" --add-label "status:in-progress"
 ```
 
-Show the user the task title, description, and priority. If dependencies are not `done`, warn the user and ask whether to proceed.
+Show the user the issue title, description, and priority. If dependencies are not `done`, warn the user and ask whether to proceed.
 
 **Assess scope:**
-- If the task bundles multiple unrelated concerns, recommend `task-master expand --id=$ARGUMENTS` to break it up first.
+- If the issue bundles multiple unrelated concerns, recommend breaking it into sub-issues manually and linking them from the parent issue.
 - If the spec is already comprehensive (Goal, Current State, Acceptance Criteria, etc.), skip Step 1 and tell the user.
 
 ## Step 1: Research Team
@@ -41,19 +41,19 @@ Show the user the task title, description, and priority. If dependencies are not
 Create an agent team of 2-3 researchers, each investigating a different aspect of the task. Split by concern -- e.g., one researcher on existing code patterns, another on dependencies/APIs, another on edge cases.
 
 Dispatch each researcher as `Agent(subagent_type: researcher)` with:
-- The task ID: `$ARGUMENTS`
+- The issue number: `$ARGUMENTS`
 - Their specific research focus area
-- Instructions to report findings back (not to update Taskmaster directly -- you will synthesize)
+- Instructions to report findings back (not to update the issue directly -- you will synthesize)
 
 **Stage gate -- review all researcher outputs:**
 - Are file paths and code references real?
 - Are there contradictions between researchers?
 - Are there open questions that block planning?
 
-Synthesize findings into a unified spec and update the task:
+Synthesize findings into a unified spec and update the issue:
 
 ```bash
-task-master update-task --id=$ARGUMENTS --prompt="<synthesized spec with Goal, Current State, Desired End State, Scope, Approach, Key Decisions, Acceptance Criteria, Dependencies & Risks>"
+gh issue edit $ARGUMENTS --body "<synthesized spec with Goal, Current State, Desired End State, Scope, Approach, Key Decisions, Acceptance Criteria, Dependencies & Risks>"
 ```
 
 Give the user a 3-5 bullet summary of findings and proceed.
@@ -64,18 +64,18 @@ Dispatch two agents in parallel:
 
 ### Agent A: Planner (`Agent(subagent_type: planner)`)
 
-- The task ID: `$ARGUMENTS`
-- Context: the full spec is in Taskmaster (researcher stage complete)
-- Instructions: Read the task, deep-dive into the codebase, create a detailed implementation plan
+- The issue number: `$ARGUMENTS`
+- Context: the full spec is on the GitHub Issue (researcher stage complete)
+- Instructions: Read the issue, deep-dive into the codebase, create a detailed implementation plan
 - Save to: `.taskmaster/plans/task-$ARGUMENTS-plan.md`
 - Plan must include: Summary, Research Findings, Files to Change, Implementation Steps (with exact file paths, function names, patterns), Testing & Verification, Risks & Mitigations
-- Update the task to reference the plan file
+- Update the issue to reference the plan file
 
 ### Agent B: Test Author (`Agent(subagent_type: implementer)`)
 
-- The task ID: `$ARGUMENTS`
-- Context: the full spec is in Taskmaster
-- Instructions: Read the task spec and acceptance criteria, then create a verification script
+- The issue number: `$ARGUMENTS`
+- Context: the full spec is on the GitHub Issue
+- Instructions: Read the issue spec and acceptance criteria, then create a verification script
 - Save to: `.taskmaster/tests/task-$ARGUMENTS-test.sh`
 - The script should:
   - Be executable (`#!/usr/bin/env bash`, `set -euo pipefail`)
@@ -116,7 +116,7 @@ Give the user a brief summary (plan approach, number of steps, what the test scr
 Review the plan and split implementation into independent work streams by module/file-set. Each implementer gets a non-overlapping set of files.
 
 Dispatch 2-4 implementers as `Agent(subagent_type: implementer)` with:
-- The task ID: `$ARGUMENTS`
+- The issue number: `$ARGUMENTS`
 - The plan file: `.taskmaster/plans/task-$ARGUMENTS-plan.md`
 - Their specific implementation steps (by number from the plan)
 - Their assigned file set (no overlap with other implementers)
@@ -144,11 +144,11 @@ Give the user a summary of what was implemented (files changed, key outcomes) an
 ## Step 4: Review
 
 ```bash
-task-master set-status --id=$ARGUMENTS --status=review
+gh issue edit $ARGUMENTS --remove-label "status:in-progress" --add-label "status:review"
 ```
 
 Dispatch `Agent(subagent_type: reviewer)` with:
-- The task ID: `$ARGUMENTS`
+- The issue number: `$ARGUMENTS`
 - The plan file: `.taskmaster/plans/task-$ARGUMENTS-plan.md`
 - The test script: `.taskmaster/tests/task-$ARGUMENTS-test.sh`
 - Summary of what each implementer changed
@@ -163,7 +163,7 @@ Dispatch `Agent(subagent_type: reviewer)` with:
 ### If PASS
 
 ```bash
-task-master set-status --id=$ARGUMENTS --status=done
+gh issue edit $ARGUMENTS --remove-label "status:review" --add-label "status:done" && gh issue close $ARGUMENTS
 ```
 
 Report to the user: what was accomplished, any minor nits the reviewer noted, final status.
@@ -171,7 +171,7 @@ Report to the user: what was accomplished, any minor nits the reviewer noted, fi
 ### If FAIL
 
 ```bash
-task-master set-status --id=$ARGUMENTS --status=in-progress
+gh issue edit $ARGUMENTS --remove-label "status:review" --add-label "status:in-progress"
 ```
 
 Send the reviewer's issue list back to the relevant implementer(s). Include each issue with severity, file, line, description, and suggested fix.
