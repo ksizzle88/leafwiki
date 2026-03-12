@@ -26,10 +26,18 @@ if [ ! -f "$CLAUDIO_HOME/.initialized" ]; then
         echo "Copied defaults from image"
     fi
 
-    # Copy project-specific overrides (if any)
+    # Overlay project-specific settings (if any)
     if [ -d "/workspace/.claude" ]; then
-        # Skip credentials when copying project settings
-        find /workspace/.claude -type f ! -name ".credentials.json" -exec cp {} "$CLAUDE_DIR/" \; 2>/dev/null || true
+        # Copy top-level files (settings.json, mcp.json, etc.) -- skip credentials
+        find /workspace/.claude -maxdepth 1 -type f ! -name ".credentials.json" -exec cp {} "$CLAUDE_DIR/" \; 2>/dev/null || true
+
+        # Copy subdirectories preserving structure (project files override image defaults)
+        for dir in commands reference skills agents hooks; do
+            if [ -d "/workspace/.claude/$dir" ]; then
+                mkdir -p "$CLAUDE_DIR/$dir"
+                cp -r "/workspace/.claude/$dir/"* "$CLAUDE_DIR/$dir/" 2>/dev/null || true
+            fi
+        done
         echo "Applied project-specific settings"
     fi
 
@@ -45,6 +53,8 @@ if [ -d "$CLAUDIO_SHARED" ]; then
     mkdir -p "$CLAUDIO_SHARED/auth"
     mkdir -p "$CLAUDIO_SHARED/plugins/skills"
     mkdir -p "$CLAUDIO_SHARED/plugins/commands"
+    mkdir -p "$CLAUDIO_SHARED/plugins/hooks"
+    mkdir -p "$CLAUDIO_SHARED/plugins/agents"
     mkdir -p "$CLAUDIO_SHARED/caches/npm"
     mkdir -p "$CLAUDIO_SHARED/caches/pip"
 
@@ -82,6 +92,8 @@ if [ -d "$CLAUDIO_SHARED" ]; then
         cp -ru "$CLAUDIO_SHARED/plugins/"* "$CLAUDE_DIR/" 2>/dev/null || true
         cp -ru "$CLAUDE_DIR/skills" "$CLAUDIO_SHARED/plugins/" 2>/dev/null || true
         cp -ru "$CLAUDE_DIR/commands" "$CLAUDIO_SHARED/plugins/" 2>/dev/null || true
+        cp -ru "$CLAUDE_DIR/hooks" "$CLAUDIO_SHARED/plugins/" 2>/dev/null || true
+        cp -ru "$CLAUDE_DIR/agents" "$CLAUDIO_SHARED/plugins/" 2>/dev/null || true
     fi
 
     # Setup cache symlinks
@@ -99,6 +111,26 @@ if [ -d "$CLAUDIO_SHARED" ]; then
     echo "Shared volume sync complete"
 else
     echo "No shared volume mounted (standalone mode)"
+fi
+
+# Sync project-specific directories on every start
+# Ensures hooks, commands, skills, agents, and reference docs are
+# kept up to date even on containers with existing volumes.
+if [ -d "/workspace/.claude" ]; then
+    echo "Syncing project directories..."
+
+    # Sync top-level files (settings.json, mcp.json, etc.) -- skip credentials
+    find /workspace/.claude -maxdepth 1 -type f ! -name ".credentials.json" -newer "$CLAUDE_DIR" -exec cp -u {} "$CLAUDE_DIR/" \; 2>/dev/null || true
+
+    # Sync subdirectories -- project is source of truth, only update newer files
+    for dir in commands reference skills agents hooks; do
+        if [ -d "/workspace/.claude/$dir" ]; then
+            mkdir -p "$CLAUDE_DIR/$dir"
+            cp -ru "/workspace/.claude/$dir/"* "$CLAUDE_DIR/$dir/" 2>/dev/null || true
+        fi
+    done
+
+    echo "Project directories synced"
 fi
 
 # Phase 3: Setup symlinks

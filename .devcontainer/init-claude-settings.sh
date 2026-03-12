@@ -50,8 +50,34 @@ if [ -z "$(ls -A "$CLAUDE_HOME" 2>/dev/null)" ]; then
 
     echo "Claude settings initialized."
 else
-    echo "$CLAUDE_HOME already initialized, skipping."
+    echo "$CLAUDE_HOME already initialized, skipping first-time setup."
 fi
+
+# Sync project-specific .claude/ directories on every start
+# Ensures hooks, commands, skills, agents, and reference docs
+# are kept up to date even on containers with existing volumes.
+sync_project_dirs() {
+    if [ ! -d "$PROJECT_CLAUDE" ] || [ -z "$(ls -A "$PROJECT_CLAUDE" 2>/dev/null)" ]; then
+        return 0
+    fi
+
+    echo "Syncing project-specific directories from $PROJECT_CLAUDE..."
+
+    # Sync directories -- project files override local (cp -ru = update only newer)
+    for dir in commands reference skills agents hooks; do
+        if [ -d "$PROJECT_CLAUDE/$dir" ] && [ -n "$(ls -A "$PROJECT_CLAUDE/$dir" 2>/dev/null)" ]; then
+            mkdir -p "$CLAUDE_HOME/$dir"
+            cp -ru "$PROJECT_CLAUDE/$dir/"* "$CLAUDE_HOME/$dir/" 2>/dev/null || true
+            echo "  Synced $dir from project."
+        fi
+    done
+
+    # Sync top-level files (settings, etc.) -- exclude credentials
+    find "$PROJECT_CLAUDE" -maxdepth 1 -type f ! -name ".credentials.json" -newer "$CLAUDE_HOME" -exec cp -u {} "$CLAUDE_HOME/" \; 2>/dev/null || true
+}
+
+# Call project dir sync
+sync_project_dirs
 
 # Sync credentials from/to shared auth volume (enables single login across all containers)
 sync_shared_credentials() {
@@ -235,7 +261,7 @@ sync_shared_plugins() {
     fi
 
     # Sync custom skills and commands directories (bidirectional)
-    for dir in skills commands agents; do
+    for dir in skills commands agents hooks; do
         if [ -d "$SHARED_PLUGINS/$dir" ] && [ -n "$(ls -A "$SHARED_PLUGINS/$dir" 2>/dev/null)" ]; then
             echo "  Syncing $dir from shared volume..."
             mkdir -p "$CLAUDE_HOME/$dir"
