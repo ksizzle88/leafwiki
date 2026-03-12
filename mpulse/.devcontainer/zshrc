@@ -10,6 +10,9 @@ export CLAUDE_CODE_TASK_LIST_ID="${PROJECT_NAME:-mpulse}"
 export SSH_AUTH_SOCK="/home/dev/.ssh/agent.sock"
 
 # --- PATH ---
+# Shared utilities (wait-for-output, etc.)
+export PATH="$HOME/.claude/bin:$PATH"
+# Skill-specific CLIs
 export PATH="$HOME/.claude/snowflake:$PATH"
 export PATH="$HOME/.claude/skills/tf-plan-analyzer/scripts:$PATH"
 

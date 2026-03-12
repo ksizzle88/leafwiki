@@ -34,7 +34,8 @@
                 "snowflake.snowflake-vsc",
                 "charliermarsh.ruff",
                 "AmazonWebServices.aws-toolkit-vscode",
-                "mkhl.direnv"
+                "mkhl.direnv",
+                "bierner.markdown-mermaid"
             ]
         }
     }
