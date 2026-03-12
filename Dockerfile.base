@@ -146,7 +146,6 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
     -a "export HISTSIZE=10000" \
     -a "export SAVEHIST=10000" \
     -a "export CLAUDE_CODE_TASK_LIST_ID=main" \
-    -a "export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1" \
     -x
 USER root
 
