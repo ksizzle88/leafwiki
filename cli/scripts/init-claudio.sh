@@ -170,6 +170,9 @@ for profile in "$HOME/.bashrc" "$HOME/.zshrc"; do
     if [ -f "$profile" ] && ! grep -q "CLAUDE_CONFIG_DIR" "$profile" 2>/dev/null; then
         echo 'export CLAUDE_CONFIG_DIR="$HOME/.claude"' >> "$profile"
     fi
+    if [ -f "$profile" ] && ! grep -q "alias ol=" "$profile" 2>/dev/null; then
+        echo 'alias ol="code /tmp/claude-last.md"' >> "$profile"
+    fi
 done
 
 # Phase 4: Setup shell history
