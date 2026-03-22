@@ -1,0 +1,183 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# snow-2-claude: Run a SQL file via Snowflake CLI, save output for Claude to read.
+#
+# Usage: snow-2-claude [--dry-run] [filename] [-c connection] [-f format] [-t timeout]
+#        snow-2-claude clean [--dry-run]
+#
+#   filename     SQL file to run (default: run.sql)
+#                Resolved relative to the nearest .claude/snowflake/ directory.
+#   -c conn      Snowflake connection profile (default: snow CLI default)
+#   -f format    Output format: TABLE, JSON, CSV (default: TABLE)
+#   -t timeout   Timeout in seconds (default: 120)
+#   --dry-run    Print the command that would be executed, but don't run it
+#   clean        Remove all .sql and -out.txt files from the snowflake directory
+#
+# Directory resolution (like git):
+#   Traverses upward from $PWD to find the nearest .claude/ directory,
+#   then uses .claude/snowflake/ inside it. Falls back to ~/.claude/snowflake/.
+
+usage() {
+    sed -n '3,15p' "$0" | sed 's/^# \?//'
+    exit "${1:-0}"
+}
+
+# --- Find nearest .claude/ directory by traversing upward ---
+find_claude_dir() {
+    local dir="$PWD"
+    while [[ "$dir" != "/" ]]; do
+        if [[ -d "$dir/.claude" ]]; then
+            echo "$dir/.claude"
+            return 0
+        fi
+        dir="$(dirname "$dir")"
+    done
+    # Fallback to home
+    echo "$HOME/.claude"
+    return 0
+}
+
+# --- Handle "clean" subcommand ---
+if [[ "${1:-}" == "clean" ]]; then
+    dry_run=false
+    [[ "${2:-}" == "--dry-run" ]] && dry_run=true
+
+    claude_dir="$(find_claude_dir)"
+    snowflake_dir="$claude_dir/snowflake"
+
+    if [[ ! -d "$snowflake_dir" ]]; then
+        echo "Nothing to clean: $snowflake_dir does not exist"
+        exit 0
+    fi
+
+    files=()
+    while IFS= read -r -d '' f; do
+        files+=("$f")
+    done < <(find "$snowflake_dir" -maxdepth 1 \( -name '*.sql' -o -name '*-out.txt' \) -print0 2>/dev/null)
+
+    if [[ ${#files[@]} -eq 0 ]]; then
+        echo "Nothing to clean in $snowflake_dir"
+        exit 0
+    fi
+
+    echo "Snowflake dir: $snowflake_dir"
+    echo ""
+    for f in "${files[@]}"; do
+        if $dry_run; then
+            echo "  would delete: $(basename "$f")"
+        else
+            echo "  deleting: $(basename "$f")"
+            rm "$f"
+        fi
+    done
+
+    echo ""
+    if $dry_run; then
+        echo "${#files[@]} file(s) would be deleted. Run without --dry-run to delete."
+    else
+        echo "${#files[@]} file(s) deleted."
+    fi
+    exit 0
+fi
+
+# --- Parse arguments ---
+sql_file=""
+connection=""
+format="TABLE"
+dry_run=false
+timeout_secs=120
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --dry-run) dry_run=true; shift ;;
+        -c) connection="$2"; shift 2 ;;
+        -f) format="$2"; shift 2 ;;
+        -t) timeout_secs="$2"; shift 2 ;;
+        -h|--help) usage 0 ;;
+        -*) echo "Unknown option: $1" >&2; usage 1 ;;
+        *)
+            if [[ -z "$sql_file" ]]; then
+                sql_file="$1"
+            else
+                echo "Error: unexpected argument '$1'" >&2; usage 1
+            fi
+            shift
+            ;;
+    esac
+done
+
+sql_file="${sql_file:-run.sql}"
+
+# --- Resolve working directory ---
+claude_dir="$(find_claude_dir)"
+snowflake_dir="$claude_dir/snowflake"
+mkdir -p "$snowflake_dir"
+
+# --- Resolve SQL file path ---
+if [[ "$sql_file" == /* ]]; then
+    # Absolute path: use as-is
+    sql_path="$sql_file"
+else
+    # Relative filename: try nearest .claude/snowflake/, then fall back to ~/.claude/snowflake/
+    sql_path="$snowflake_dir/$sql_file"
+    if [[ ! -f "$sql_path" && "$snowflake_dir" != "$HOME/.claude/snowflake" ]]; then
+        fallback="$HOME/.claude/snowflake/$sql_file"
+        if [[ -f "$fallback" ]]; then
+            sql_path="$fallback"
+            snowflake_dir="$HOME/.claude/snowflake"
+        fi
+    fi
+fi
+
+if [[ ! -f "$sql_path" ]]; then
+    echo "Error: SQL file not found: $sql_path" >&2
+    exit 1
+fi
+
+# --- Build output filename: foo.sql -> foo-out.txt ---
+# Derive output path in the same directory as the SQL file
+sql_dir="$(dirname "$sql_path")"
+sql_basename="$(basename "$sql_file" .sql)"
+out_path="$sql_dir/${sql_basename}-out.txt"
+
+# --- Build snow command ---
+snow_args=(sql -f "$sql_path" --format "$format")
+if [[ -n "$connection" ]]; then
+    snow_args+=(-c "$connection")
+fi
+
+# --- Run it ---
+echo "--- snow-2-claude ---"
+echo "  SQL:    $sql_path"
+echo "  Output: $out_path"
+echo "  Format: $format"
+[[ -n "$connection" ]] && echo "  Conn:   $connection"
+echo "  Timeout: ${timeout_secs}s"
+echo "---------------------"
+
+if $dry_run; then
+    echo "  [dry-run] would execute: snow ${snow_args[*]}"
+    exit 0
+fi
+
+# Run snow with timeout to prevent indefinite hangs (e.g., expired auth tokens
+# triggering browser auth in a non-interactive terminal).
+# Use a temp file + trap to ensure partial output is preserved on interruption.
+snow_exit=0
+timeout "$timeout_secs" snow "${snow_args[@]}" 2>&1 | tee "$out_path" || snow_exit=$?
+
+echo ""
+if [[ $snow_exit -eq 124 ]]; then
+    echo "ERROR: Query timed out after ${timeout_secs}s" | tee -a "$out_path"
+    echo "  If auth expired, re-authenticate: snow connection test -c ${connection:-default}"
+    echo "  Partial output (if any) saved to: $out_path"
+    exit 1
+elif [[ $snow_exit -ne 0 ]]; then
+    echo "ERROR: snow exited with code $snow_exit" | tee -a "$out_path"
+    echo "  Output (if any) saved to: $out_path"
+    exit "$snow_exit"
+fi
+
+echo "Output saved to: $out_path"
+printf '\a'

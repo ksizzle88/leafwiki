@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.reddit.com)",
+      "WebFetch(domain:old.reddit.com)",
+      "Bash(ls -la /home/dev/.claude && echo \"---\" && df /home/dev/.claude 2>/dev/null && echo \"---\" && mount | grep -E \"claude|claudio\" 2>/dev/null)",
+      "WebSearch",
+      "Bash(cd /workspace/tasks/general && mv todo \"1-todo\" && mv planning \"2-planning\" && mv in-progress \"3-in-progress\" && mv review \"4-review\" && mv done \"5-done\")",
+      "Bash(cd /workspace/tasks/data-pipelines && mv todo \"1-todo\" && mv in-progress \"2-in-progress\" && mv review \"3-review\" && mv done \"4-done\")",
+      "Bash(cd /workspace/tasks/DPI_Analytics_DBT && mv todo \"1-todo\" && mv in-progress \"2-in-progress\" && mv review \"3-review\" && mv done \"4-done\")",
+      "Bash(mount | grep snowflake || df /home/dev/.snowflake/ | tail -1)",
+      "Bash(mount | grep -E '\\\\.ssh|\\\\.snowflake|\\\\.gnupg' && echo \"---\" && df /home/dev/.ssh/ | tail -1)",
+      "Bash(sudo chown dev:dev /home/dev/.snowflake/config.toml && sudo chmod 0600 /home/dev/.snowflake/config.toml && ls -la /home/dev/.snowflake/config.toml)",
+      "Bash(snow --version 2>&1)",
+      "Bash(snow connection list --debug 2>&1 | grep -i \"filename\\\\|path\\\\|log\\\\|unable\\\\|permission\\\\|errno\" | head -20)",
+      "Bash(pipx list 2>&1 | head -30)",
+      "Bash(which snow && python3 -c \"import shutil; print\\(shutil.which\\('snow'\\)\\)\")",
+      "Bash(snow --info 2>&1 | head -20)",
+      "Bash(pip show snowflake-cli 2>/dev/null || pip show snowflake-cli-labs 2>/dev/null || echo \"not in main pip env\")",
+      "Bash(python3 -c \"\nimport dbt.adapters.snowflake.connections as sc\nimport inspect\nsrc = inspect.getsource\\(sc\\)\nlines = src.split\\('\\\\n'\\)\n# Show context around line 232 where client_store_temporary_credential is set\nfor i in range\\(220, 250\\):\n    print\\(f'{i}: {lines[i]}'\\)\n\" 2>&1)",
+      "WebFetch(domain:www.richsnapp.com)",
+      "Bash(~/.claude/commands/review/scripts/extract-session.sh)",
+      "Bash(grep -l \"snowflake.export\\\\|dp_config_sync\\\\|export.pipeline.research\\\\|ingestion.pipeline.research\" /home/dev/.claude/projects/-workspace-data-pipelines*/*.jsonl 2>/dev/null | head -10)",
+      "Bash(grep -l \"snowflake.export\\\\|dp_config_sync\\\\|export.pipeline.research\\\\|ingestion.pipeline.research\" /home/dev/.claude/projects/-workspace-DPI*/*.jsonl 2>/dev/null | head -10)",
+      "Read(//home/dev/.claudio/claude/teams/**)",
+      "Read(//home/dev/.claudio/claude/teams/fuzzy-soaring-blum/**)",
+      "Bash(find /workspace/data-pipelines/snowflake-export -type f \\\\\\( -name \"*.yml\" -o -name \"*.yaml\" -o -name \"*.json\" -o -name \".env*\" -o -name \"Jenkinsfile\" -o -name \"docker-compose.yml\" \\\\\\) 2>/dev/null | sort)",
+      "Bash(find /workspace/data-pipelines/snowflake-export -type f \\\\\\( -name \"*.yml\" -o -name \"*.yaml\" -o -name \"*.json\" -o -name \"*.toml\" -o -name \"*.ini\" -o -name \".env*\" -o -name \"Jenkinsfile\" -o -name \"docker-compose.yml\" -o -name \"requirements.txt\" -o -name \"setup.py\" -o -name \"pyproject.toml\" \\\\\\) 2>/dev/null | head -50)",
+      "Bash(grep -r \"config\\\\|settings\\\\|CONFIG\\\\|SETTINGS\" /workspace/data-pipelines/snowflake-export/*.py 2>/dev/null | grep -i \"^[^:]*\\\\.py.*class\\\\|^[^:]*\\\\.py.*def.*config\" | head -20)",
+      "Bash(wc -l /workspace/data-pipelines/snowflake-export/config/dp_config_sync*.yml)",
+      "Bash(mount | grep workspace)",
+      "Bash(mount | grep claude && echo \"---\" && ls -la /home/dev/.claude/plans/purrfect-munching-seahorse.md)",
+      "Bash(ls -lah /workspace/hxi-infra/environments/stage/*.txt /workspace/hxi-infra/environments/stage/*.json 2>/dev/null | grep -E \"\\\\.\\(txt|json\\)$\")",
+      "Bash(ls /workspace/data-pipelines/snowflake-export/sync_to_snowflake.md 2>/dev/null; echo \"EXIT:$?\")",
+      "Bash(grep -c 'callout-schema' /workspace/data-pipelines/snowflake-export/sync_to_snowflake.md && grep -c 'schema-tag' /workspace/data-pipelines/snowflake-export/sync_to_snowflake.md && grep -c 'placeholder' /workspace/data-pipelines/snowflake-export/sync_to_snowflake.md && grep -c '```mermaid' /workspace/data-pipelines/snowflake-export/sync_to_snowflake.md)"
+    ]
+  },
+  "outputStyle": "default"
+}

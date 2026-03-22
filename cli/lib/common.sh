@@ -112,10 +112,12 @@ has_command() {
 #   Home directory path
 #######################################
 get_home_dir() {
-    if [[ "${USER}" == "root" ]]; then
+    local current_user="${USER:-$(id -un 2>/dev/null || echo "")}"
+
+    if [[ "${current_user}" == "root" ]]; then
         echo "/root"
     else
-        echo "${HOME}"
+        echo "${HOME:-/home/dev}"
     fi
 }
 

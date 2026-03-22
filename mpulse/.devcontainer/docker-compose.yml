@@ -8,6 +8,7 @@ services:
       dockerfile: Dockerfile
       args:
         CLAUDIO_TAG: ${CLAUDIO_TAG:-develop}
+        CLAUDIO_IMAGE: ${CLAUDIO_IMAGE:-ghcr.io/ksizzle88/claudio}
     image: mpulse-claudio:${CLAUDIO_TAG:-develop}
     hostname: mpulse
     cap_add:
@@ -78,9 +79,9 @@ services:
     #   - "8250:8250"
 
     healthcheck:
-      test: ["CMD", "sh", "-c", "which claude && dbt --version"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "sh", "-c", "command -v claude && command -v dbt"]
+      interval: 2m
+      timeout: 5s
       retries: 3
       start_period: 15s
 
@@ -108,12 +109,16 @@ volumes:
     external: true
     name: claudio-shared
   mpulse-claudio:
+    external: true
+    name: mpulse-claudio
   mpulse-history:
   mpulse-config:
   mpulse-local:
   mpulse-cache:
   mpulse-azure:
   mpulse-snowflake:
+    external: true
+    name: mpulse-snowflake
 
 networks:
   dev-network:

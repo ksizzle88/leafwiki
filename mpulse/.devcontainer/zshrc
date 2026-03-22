@@ -10,15 +10,28 @@ export CLAUDE_CODE_TASK_LIST_ID="${PROJECT_NAME:-mpulse}"
 export SSH_AUTH_SOCK="/home/dev/.ssh/agent.sock"
 
 # --- PATH ---
-# Shared utilities (wait-for-output, etc.)
+# ~/.claude/bin: auto-populated by init-claudio (symlinks skill scripts)
+# /usr/local/bin: wait-for-output baked into Claudio base image
 export PATH="$HOME/.claude/bin:$PATH"
-# Skill-specific CLIs
-export PATH="$HOME/.claude/snowflake:$PATH"
-export PATH="$HOME/.claude/skills/tf-plan-analyzer/scripts:$PATH"
+
+export EDITOR="code --wait"
+export VISUAL="code --wait"
 
 # --- Aliases ---
 alias test-dc="bash /workspace/.devcontainer/test-snowflake.sh"
 alias add-ssh="ssh-add ~/.ssh/id_rsa"
+
+# --- Functions ---
+rzsh() {
+    local f="/workspace/.devcontainer/zshrc"
+    if [[ -f "$f" ]]; then
+        source "$f"
+        hash -r
+        echo "Reloaded $f (hash cleared)"
+    else
+        echo "Not found: $f"
+    fi
+}
 
 # --- SSH: auto-add key if not already loaded (match by fingerprint) ---
 if [ -f ~/.ssh/id_rsa ]; then

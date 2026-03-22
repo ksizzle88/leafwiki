@@ -10,18 +10,11 @@
     "features": {
         "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
     },
-    // Per-container volumes (override standalone volumes)
-    // These use ${devcontainerId} which only works in devcontainer.json
+    // Persistent volumes — external, survive rebuilds and down -v
     "mounts": [
-        "source=claudio-${devcontainerId},target=/home/dev/.claudio,type=volume",
-        "source=claudio-history-${devcontainerId},target=/commandhistory,type=volume",
-        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/dev/.ssh-host,type=bind,readonly",
-        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.gnupg,target=/home/dev/.gnupg-host,type=bind,readonly"
+        "source=claudio-dev,target=/home/dev/.claudio,type=volume",
+        "source=claudio-history,target=/commandhistory,type=volume"
     ],
-    // SSH agent forwarding from host
-    "remoteEnv": {
-        "SSH_AUTH_SOCK": "${localEnv:SSH_AUTH_SOCK}"
-    },
     // Note: init-claudio and firewall init are handled by docker-entrypoint.sh
     // VS Code customizations
     "customizations": {

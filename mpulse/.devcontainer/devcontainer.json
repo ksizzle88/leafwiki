@@ -19,7 +19,11 @@
                 },
                 "dbt.queryLimit": 500,
                 "dbt.queryTemplate": "select * from ({query}) as query limit {limit}",
-                "snowflake.connectionsConfigFile": "/home/dev/.snowflake/connections.toml"
+                "snowflake.connectionsConfigFile": "/home/dev/.snowflake/connections.toml",
+                "markdown.preview.scrollEditorWithPreview": false,
+                "markdown.preview.scrollPreviewWithEditor": false,
+                "markdown.preview.markEditorSelection": false,
+                "markdown.preview.doubleClickToSwitchToEditor": false
             },
             "extensions": [
                 "anthropic.claude-code",

@@ -30,6 +30,10 @@ exploration-*/
 # mpulse - only devcontainer is committed, rest lives in container volumes
 mpulse/*
 !mpulse/.devcontainer/
+!mpulse/.claude/
+
+#backuups some disaster recovery fun!
+backups/*
 
 # Claude local settings (personal overrides)
 .claude/settings.local.json
@@ -71,6 +75,9 @@ coverage/
 .nyc_output/
 *.tmp
 *.temp
+
+# Rust build artifacts
+tools/jtbl/target/
 
 # Taskmaster ephemeral state
 .taskmaster/state.json

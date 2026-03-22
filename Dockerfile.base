@@ -55,6 +55,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         fzf \
         tmux \
         unzip \
+        # Dev tools
+        strace \
+        direnv \
+        yq \
         # Build essentials (for native modules)
         build-essential \
         libpq-dev \
@@ -63,11 +67,16 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         python3-dev \
         python3-venv \
         python3-pip \
+        # Init system (PID 1 zombie reaper + signal forwarding)
+        tini \
         # Firewall tools (for security layer)
         iptables \
         ipset \
         iproute2 \
         dnsutils \
+        # Claude Code sandbox dependencies
+        bubblewrap \
+        socat \
     && rm -rf /var/lib/apt/lists/*
 
 # Layer 3: Python aliases and pip upgrade
@@ -106,6 +115,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     curl -fsSL https://cli.doppler.com/install.sh | sh
 
+# Layer 7b: uv (ultra-fast pip/venv replacement)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && mv /root/.local/bin/uv /usr/local/bin/uv \
+    && mv /root/.local/bin/uvx /usr/local/bin/uvx
+
 # Layer 8: Environment configuration
 # Note: CLAUDE_CONFIG_DIR uses $HOME at runtime, not hardcoded path
 ENV npm_config_update_notifier=false \
@@ -125,8 +139,9 @@ ENV PATH=$PATH:/usr/local/share/npm-global/bin
 # Layer 10: AI Coding CLIs (auto-updates work via user-owned npm prefix)
 # - Claude Code (Anthropic): https://claude.ai/code
 # - Codex CLI (OpenAI): https://openai.com/codex
+# - Sandbox runtime: seccomp filter for Claude Code sandbox mode
 USER ${DEV_USER}
-RUN npm install -g @anthropic-ai/claude-code @openai/codex task-master-ai
+RUN npm install -g @anthropic-ai/claude-code @openai/codex task-master-ai @anthropic-ai/sandbox-runtime
 USER root
 
 # Layer 11: Shell history directory
@@ -146,6 +161,8 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
     -a "export HISTSIZE=10000" \
     -a "export SAVEHIST=10000" \
     -a "export CLAUDE_CODE_TASK_LIST_ID=main" \
+    -a "export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1" \
+    -a 'export PATH="$HOME/.claude/bin:$PATH"' \
     -x
 USER root
 
@@ -164,12 +181,14 @@ COPY .devcontainer/init-firewall.sh /usr/local/bin/init-firewall.sh
 COPY .devcontainer/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY cli/scripts/init-claudio.sh /usr/local/bin/init-claudio
 COPY cli/scripts/task-master-wrapper.sh /usr/local/bin/task-master
+COPY cli/scripts/wait-for-output.sh /usr/local/bin/wait-for-output
 RUN chmod +x /usr/local/bin/init-claude-settings.sh \
     && chmod +x /usr/local/bin/install-claudio.sh \
     && chmod +x /usr/local/bin/init-firewall.sh \
     && chmod +x /usr/local/bin/docker-entrypoint.sh \
     && chmod +x /usr/local/bin/init-claudio \
-    && chmod +x /usr/local/bin/task-master
+    && chmod +x /usr/local/bin/task-master \
+    && chmod +x /usr/local/bin/wait-for-output
 
 # Layer 15: Sudoers for firewall (passwordless)
 RUN echo "${DEV_USER} ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" \
@@ -203,11 +222,11 @@ USER root
 # Runtime configuration
 # Entrypoint runs as root to fix volume permissions, then drops to dev user
 WORKDIR ${DEV_HOME}
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+ENTRYPOINT ["tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
 
 # Healthcheck
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD node --version && python --version && which claude && which codex && which aws && which doppler || exit 1
+HEALTHCHECK --interval=2m --timeout=5s --start-period=10s --retries=3 \
+    CMD command -v claude >/dev/null
 
 # Build provenance (declared last to avoid cache busting)
 ARG BUILD_COMMIT=unknown

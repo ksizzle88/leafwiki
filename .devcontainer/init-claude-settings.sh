@@ -90,7 +90,7 @@ sync_project_dirs
 
 # Sync credentials from/to shared auth volume (enables single login across all containers)
 sync_shared_credentials() {
-    local SHARED_AUTH="${SHARED_AUTH:-$DEFAULT_HOME/.claude-shared-auth}"
+    local SHARED_AUTH="${SHARED_AUTH:-$DEFAULT_HOME/.claudio-shared/auth}"
     local CRED_FILE=".credentials.json"
 
     if [ ! -d "$SHARED_AUTH" ]; then

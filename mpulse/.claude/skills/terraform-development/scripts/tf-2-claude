@@ -1,0 +1,511 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# tf-2-claude: Run terraform commands and save output for Claude to analyze.
+#
+# Usage: tf-2-claude [--dry-run] plan [-target=ADDR] [-parallelism=N] [-refresh=false] ...
+#        tf-2-claude [--dry-run] init [-upgrade] [-migrate-state]
+#        tf-2-claude [--dry-run] apply [tfplan.out]
+#        tf-2-claude analyze <command> [--filter PAT] [--module MOD] [--limit N]
+#        tf-2-claude [--dry-run] state-list [--filter PATTERN]
+#        tf-2-claude [--dry-run] state-show <address>
+#        tf-2-claude [--dry-run] state-rm <address> [address...]
+#        tf-2-claude [--dry-run] validate
+#        tf-2-claude [--dry-run] output [name]
+#        tf-2-claude clean [--dry-run] [--cache]
+#
+# Commands:
+#   plan   (p)    Run terraform plan, generate tfplan.out + tfplan.json,
+#                 then auto-run summary + issues analysis.
+#                 Default: -parallelism=40. All terraform plan flags pass through.
+#   init          Run terraform init (with optional flags)
+#   apply         Run terraform apply (defaults to tfplan.out if it exists)
+#   analyze       Run tfplan.py analysis (any command + filters)
+#   state-list    Run terraform state list, save to state-list-out.txt
+#   state-show    Run terraform state show, save to state-show-out.txt
+#   state-rm      Run terraform state rm, save to state-rm-out.txt
+#   validate      Run terraform validate, save to validate-out.txt
+#   output        Run terraform output, save to output-out.txt
+#   clean         Remove tfplan.out, tfplan.json, and *-out.txt files
+#
+# Shortcuts (pass through to analyze):
+#   s=summary  m=modules  r=resources  i=imports  d=details
+#   u=updates  x=issues   df=diff      dr=drift   st=status
+#
+# Global Options:
+#   --dry-run     Print the command that would be executed, but don't run it
+#
+# Plan Options (terraform flags pass through):
+#   -target=ADDR       Target a specific resource/module (repeatable)
+#   -parallelism=N     Concurrent operations (default: 40)
+#   -refresh=false     Skip state refresh (fast iteration)
+#   --no-analyze       Skip auto-analysis after plan (tf-2-claude flag)
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TFPLAN_PY="$SCRIPT_DIR/tfplan.py"
+DRY_RUN=false
+
+elapsed_time() {
+    local start=$1
+    local end
+    end=$(date +%s)
+    echo "$((end - start))s"
+}
+
+usage() {
+    sed -n '3,36p' "$0" | sed 's/^# \?//'
+    exit "${1:-0}"
+}
+
+run_cmd() {
+    if $DRY_RUN; then
+        echo "  [dry-run] would execute: $*"
+        return 0
+    fi
+    "$@"
+}
+
+# --- Subcommand: clean ---
+cmd_clean() {
+    local include_cache=false
+    for arg in "$@"; do
+        [[ "$arg" == "--cache" ]] && include_cache=true
+        [[ "$arg" == "--dry-run" ]] && DRY_RUN=true
+    done
+
+    local files=()
+    for f in tfplan.out tfplan.json tfplan.prev.json *-out.txt; do
+        [[ -f "$f" ]] && files+=("$f")
+    done
+    if $include_cache; then
+        for f in .*.cache.json; do
+            [[ -f "$f" ]] && files+=("$f")
+        done
+    fi
+
+    if [[ ${#files[@]} -eq 0 ]]; then
+        echo "Nothing to clean in $(pwd)"
+        return 0
+    fi
+
+    echo "Directory: $(pwd)"
+    echo ""
+    local total_size=0
+    for f in "${files[@]}"; do
+        local size
+        size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null || echo 0)
+        local human_size
+        if [[ $size -gt 1048576 ]]; then
+            human_size="$(( size / 1048576 ))MB"
+        elif [[ $size -gt 1024 ]]; then
+            human_size="$(( size / 1024 ))KB"
+        else
+            human_size="${size}B"
+        fi
+        total_size=$((total_size + size))
+        if $DRY_RUN; then
+            echo "  would delete: $f ($human_size)"
+        else
+            echo "  deleting: $f ($human_size)"
+            rm "$f"
+        fi
+    done
+
+    local total_human
+    if [[ $total_size -gt 1048576 ]]; then
+        total_human="$(( total_size / 1048576 ))MB"
+    elif [[ $total_size -gt 1024 ]]; then
+        total_human="$(( total_size / 1024 ))KB"
+    else
+        total_human="${total_size}B"
+    fi
+
+    echo ""
+    if $DRY_RUN; then
+        echo "${#files[@]} file(s) would be deleted ($total_human)."
+    else
+        echo "${#files[@]} file(s) deleted ($total_human)."
+    fi
+}
+
+# --- Subcommand: init ---
+cmd_init() {
+    local init_args=(init)
+
+    for arg in "$@"; do
+        case "$arg" in
+            --upgrade|-upgrade) init_args+=(-upgrade) ;;
+            --migrate-state|-migrate-state) init_args+=(-migrate-state) ;;
+            *) echo "Unknown init option: $arg" >&2; exit 1 ;;
+        esac
+    done
+
+    echo "--- tf-2-claude init ---"
+    echo "  Dir:  $(pwd)"
+    echo "  Args: terraform ${init_args[*]}"
+    echo "------------------------"
+
+    if $DRY_RUN; then
+        echo "  [dry-run] would execute: terraform ${init_args[*]}"
+        return 0
+    fi
+
+    terraform "${init_args[@]}" 2>&1 | tee init-out.txt
+
+    echo ""
+    echo "Output saved to: init-out.txt"
+    printf '\a'
+}
+
+# --- Subcommand: plan ---
+cmd_plan() {
+    local no_analyze=false
+    local has_parallelism=false
+    local tf_args=()
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            # Our flag (not passed to terraform)
+            --no-analyze)          no_analyze=true; shift ;;
+            # Normalize target variants
+            -target|--target|-t)   tf_args+=("-target=$2"); shift 2 ;;
+            # Pass through all terraform plan flags as-is
+            -parallelism=*)        has_parallelism=true; tf_args+=("$1"); shift ;;
+            -*)                    tf_args+=("$1"); shift ;;
+            *)                     tf_args+=("$1"); shift ;;
+        esac
+    done
+
+    # Default parallelism to 40 if not explicitly set
+    if ! $has_parallelism; then
+        tf_args+=("-parallelism=40")
+    fi
+
+    local plan_args=(plan -out tfplan.out "${tf_args[@]}")
+
+    echo "--- tf-2-claude plan ---"
+    echo "  Dir:     $(pwd)"
+    echo "  Command: terraform ${plan_args[*]}"
+    echo "------------------------"
+
+    if $DRY_RUN; then
+        echo "  [dry-run] would execute: terraform ${plan_args[*]}"
+        echo "  [dry-run] would execute: terraform show -json tfplan.out > tfplan.json"
+        if ! $no_analyze; then
+            echo "  [dry-run] would execute: python3 $TFPLAN_PY report summary,issues[,diff,status] tfplan.json --save-dir ."
+        fi
+        return 0
+    fi
+
+    local plan_start
+    plan_start=$(date +%s)
+
+    # Save previous plan for diff comparison
+    if [[ -f "tfplan.json" ]]; then
+        cp tfplan.json tfplan.prev.json
+    fi
+
+    # Remove stale outputs so agents never read outdated data
+    rm -f tfplan.json plan-summary-out.txt plan-issues-out.txt tfplan.out .tfplan.cache.json
+
+    terraform "${plan_args[@]}" 2>&1 | tee plan-out.txt
+    local plan_exit=${PIPESTATUS[0]}
+
+    if [[ $plan_exit -ne 0 ]]; then
+        echo ""
+        echo "Plan failed (exit $plan_exit) in $(elapsed_time $plan_start). Output saved to: plan-out.txt"
+        printf '\a'
+        return $plan_exit
+    fi
+
+    echo ""
+    echo "Generating tfplan.json..."
+    terraform show -json tfplan.out > tfplan.json
+
+    echo "Plan completed in $(elapsed_time $plan_start)"
+    echo "Plan output saved to: plan-out.txt"
+    echo "Plan binary saved to: tfplan.out"
+    echo "Plan JSON saved to:   tfplan.json"
+
+    if ! $no_analyze && [[ -f "$TFPLAN_PY" ]]; then
+        echo ""
+
+        # Build the report command list: always summary + issues,
+        # conditionally add diff and status
+        local report_cmds="summary,issues"
+        [[ -f "tfplan.prev.json" ]] && report_cmds="${report_cmds},diff"
+        report_cmds="${report_cmds},status"
+
+        # Single invocation: parse JSON once, run all analyses
+        # --generate-approved creates/updates approved.yml with auto-classified rules
+        python3 "$TFPLAN_PY" report "$report_cmds" tfplan.json \
+            --save-dir . --generate-approved 2>&1 | tee plan-report-out.txt
+
+        echo "Analysis saved to: plan-*-out.txt"
+        echo ""
+        echo "Drill deeper:"
+        echo "  tf-2-claude s                        # summary"
+        echo "  tf-2-claude m                        # modules"
+        echo "  tf-2-claude d -f PATTERN             # details"
+        echo "  tf-2-claude u --pending              # unresolved updates"
+        echo "  tf-2-claude st                       # migration status"
+        echo "  tf-2-claude df                       # diff vs previous"
+    fi
+
+    printf '\a'
+}
+
+# --- Subcommand: apply ---
+cmd_apply() {
+    local apply_args=(apply)
+    local plan_file="${1:-}"
+
+    if [[ -z "$plan_file" && -f "tfplan.out" ]]; then
+        plan_file="tfplan.out"
+    fi
+
+    [[ -n "$plan_file" ]] && apply_args+=("$plan_file")
+
+    echo "--- tf-2-claude apply ---"
+    echo "  Dir:     $(pwd)"
+    echo "  Command: terraform ${apply_args[*]}"
+    echo "-------------------------"
+
+    if $DRY_RUN; then
+        echo "  [dry-run] would execute: terraform ${apply_args[*]}"
+        return 0
+    fi
+
+    terraform "${apply_args[@]}" 2>&1 | tee apply-out.txt
+
+    echo ""
+    echo "Apply output saved to: apply-out.txt"
+    printf '\a'
+}
+
+# --- Subcommand: analyze ---
+cmd_analyze() {
+    if [[ $# -lt 1 ]]; then
+        echo "Usage: tf-2-claude analyze <command> [options]"
+        echo ""
+        echo "Commands: summary, modules, resources, imports, details,"
+        echo "          drift, moved, updates, issues, diff"
+        echo ""
+        echo "Options:"
+        echo "  --filter PATTERN   Filter by resource address (regex)"
+        echo "  --module MODULE    Filter by module path"
+        echo "  --action ACTION    Filter by action (create/update/delete/replace)"
+        echo "  --limit N          Limit output to N resources"
+        echo "  --json             JSON output (updates only)"
+        exit 1
+    fi
+
+    local analysis_cmd="$1"
+    shift
+
+    if [[ ! -f "$TFPLAN_PY" ]]; then
+        echo "Error: tfplan.py not found at $TFPLAN_PY" >&2
+        exit 1
+    fi
+
+    if [[ ! -f "tfplan.json" ]]; then
+        echo "Error: tfplan.json not found. Run 'tf-2-claude plan' first." >&2
+        exit 1
+    fi
+
+    local out_file="analyze-${analysis_cmd}-out.txt"
+
+    echo "--- tf-2-claude analyze ---"
+    echo "  Dir:     $(pwd)"
+    echo "  Command: $analysis_cmd"
+    echo "---------------------------"
+
+    if $DRY_RUN; then
+        echo "  [dry-run] would execute: python3 $TFPLAN_PY $analysis_cmd tfplan.json $*"
+        return 0
+    fi
+
+    local analyze_start
+    analyze_start=$(date +%s)
+
+    python3 "$TFPLAN_PY" "$analysis_cmd" tfplan.json "$@" 2>&1 | tee "$out_file"
+
+    echo ""
+    echo "Analysis saved to: $out_file ($(elapsed_time $analyze_start))"
+    printf '\a'
+}
+
+# --- Subcommand: state-list ---
+cmd_state_list() {
+    local filter=""
+    if [[ "${1:-}" == "--filter" && -n "${2:-}" ]]; then
+        filter="$2"
+    fi
+
+    echo "--- tf-2-claude state-list ---"
+    echo "  Dir: $(pwd)"
+    echo "------------------------------"
+
+    if $DRY_RUN; then
+        echo "  [dry-run] would execute: terraform state list"
+        return 0
+    fi
+
+    if [[ -n "$filter" ]]; then
+        terraform state list 2>&1 | grep -i "$filter" | tee state-list-out.txt
+    else
+        terraform state list 2>&1 | tee state-list-out.txt
+    fi
+
+    local count
+    count=$(wc -l < state-list-out.txt)
+    echo ""
+    echo "$count resources in state. Saved to: state-list-out.txt"
+    printf '\a'
+}
+
+# --- Subcommand: state-show ---
+cmd_state_show() {
+    if [[ $# -lt 1 ]]; then
+        echo "Usage: tf-2-claude state-show <address>" >&2
+        exit 1
+    fi
+
+    local address="$1"
+
+    echo "--- tf-2-claude state-show ---"
+    echo "  Dir:     $(pwd)"
+    echo "  Address: $address"
+    echo "------------------------------"
+
+    if $DRY_RUN; then
+        echo "  [dry-run] would execute: terraform state show '$address'"
+        return 0
+    fi
+
+    terraform state show "$address" 2>&1 | tee state-show-out.txt
+
+    echo ""
+    echo "State show saved to: state-show-out.txt"
+    printf '\a'
+}
+
+# --- Subcommand: state-rm ---
+cmd_state_rm() {
+    if [[ $# -lt 1 ]]; then
+        echo "Usage: tf-2-claude state-rm <address> [address...]" >&2
+        exit 1
+    fi
+
+    echo "--- tf-2-claude state-rm ---"
+    echo "  Dir:       $(pwd)"
+    echo "  Addresses: $*"
+    echo "----------------------------"
+
+    if $DRY_RUN; then
+        for addr in "$@"; do
+            echo "  [dry-run] would execute: terraform state rm '$addr'"
+        done
+        return 0
+    fi
+
+    for addr in "$@"; do
+        echo "Removing: $addr"
+        terraform state rm "$addr" 2>&1 | tee -a state-rm-out.txt
+        echo ""
+    done
+
+    echo "State rm output saved to: state-rm-out.txt"
+    printf '\a'
+}
+
+# --- Subcommand: validate ---
+cmd_validate() {
+    echo "--- tf-2-claude validate ---"
+    echo "  Dir: $(pwd)"
+    echo "----------------------------"
+
+    if $DRY_RUN; then
+        echo "  [dry-run] would execute: terraform validate"
+        return 0
+    fi
+
+    terraform validate 2>&1 | tee validate-out.txt
+
+    echo ""
+    echo "Validate output saved to: validate-out.txt"
+    printf '\a'
+}
+
+# --- Subcommand: output ---
+cmd_output() {
+    local output_args=(output)
+    local output_name="${1:-}"
+    local out_file="output-out.txt"
+
+    if [[ -n "$output_name" ]]; then
+        output_args+=("$output_name")
+        out_file="output-${output_name}-out.txt"
+    fi
+
+    echo "--- tf-2-claude output ---"
+    echo "  Dir:     $(pwd)"
+    echo "  Command: terraform ${output_args[*]}"
+    echo "--------------------------"
+
+    if $DRY_RUN; then
+        echo "  [dry-run] would execute: terraform ${output_args[*]}"
+        return 0
+    fi
+
+    terraform "${output_args[@]}" 2>&1 | tee "$out_file"
+
+    echo ""
+    echo "Output saved to: $out_file"
+    printf '\a'
+}
+
+# --- Main dispatch ---
+if [[ $# -lt 1 ]]; then
+    usage 1
+fi
+
+# Parse global --dry-run before subcommand
+if [[ "$1" == "--dry-run" ]]; then
+    DRY_RUN=true
+    shift
+fi
+
+if [[ $# -lt 1 ]]; then
+    usage 1
+fi
+
+cmd="$1"
+shift
+
+# Also support --dry-run after subcommand
+if [[ "${1:-}" == "--dry-run" && "$cmd" != "clean" ]]; then
+    DRY_RUN=true
+    shift
+fi
+
+case "$cmd" in
+    plan|p)     cmd_plan "$@" ;;
+    init)       cmd_init "$@" ;;
+    apply)      cmd_apply "$@" ;;
+    analyze)    cmd_analyze "$@" ;;
+    state-list) cmd_state_list "$@" ;;
+    state-show) cmd_state_show "$@" ;;
+    state-rm)   cmd_state_rm "$@" ;;
+    validate)   cmd_validate "$@" ;;
+    output)     cmd_output "$@" ;;
+    clean)      cmd_clean "$@" ;;
+    -h|--help)  usage 0 ;;
+    # Shortcuts: pass single-letter aliases through to analyze
+    s|m|r|i|d|u|x|df|dr|mv|st|ap)
+        cmd_analyze "$cmd" "$@" ;;
+    # Full names also pass through to analyze
+    summary|modules|resources|imports|details|updates|issues|diff|drift|moved|status|approve|report)
+        cmd_analyze "$cmd" "$@" ;;
+    *)          echo "Unknown command: $cmd" >&2; usage 1 ;;
+esac

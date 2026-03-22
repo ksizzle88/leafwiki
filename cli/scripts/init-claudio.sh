@@ -142,6 +142,15 @@ if [ -d "/workspace/.claude" ]; then
     echo "Project directories synced"
 fi
 
+# Phase 2b: Auto-discover skill scripts and symlink to ~/.claude/bin
+mkdir -p "$CLAUDE_DIR/bin"
+for skill_dir in "$CLAUDE_DIR"/skills/*/scripts; do
+    [ -d "$skill_dir" ] || continue
+    for script in "$skill_dir"/*; do
+        [ -f "$script" ] && [ -x "$script" ] && ln -sf "$script" "$CLAUDE_DIR/bin/"
+    done
+done
+
 # Phase 3: Setup symlinks
 if [ ! -L "$HOME/.claude" ]; then
     # Remove old directory if it exists and isn't a symlink

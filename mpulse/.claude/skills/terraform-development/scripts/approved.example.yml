@@ -1,0 +1,44 @@
+# approved.yml - Track reviewed plan changes
+#
+# Place this file alongside tfplan.json in your environment directory.
+# Each rule matches resources by reason pattern and/or address pattern.
+#
+# Statuses:
+#   ACCEPT   - Intentional change, safe to apply
+#   FIX      - Config needs adjustment (work in progress)
+#   SUPPRESS - Will be handled via lifecycle ignore_changes
+#   SKIP     - Not our concern (computed, harmless)
+#
+# Usage:
+#   tfplan.py status                          # see approved vs pending
+#   tfplan.py updates --pending               # show only unresolved
+#   tfplan.py approve --reason "pattern" --status ACCEPT --note "reason"
+#
+# Patterns are regex. Both reason and address must match if both specified.
+
+rules:
+  # Example: Accept all default_tags additions (provider-level tags)
+  # - reason: "default_tags added"
+  #   status: ACCEPT
+  #   note: "Intentional -- new provider default_tags for this environment"
+
+  # Example: Mark privilege materialization as expected
+  # - reason: "privilege materialization"
+  #   status: ACCEPT
+  #   note: "Expected provider behavior on imported grants"
+
+  # Example: Mark comment changes as needing fix
+  # - reason: "comment changed"
+  #   status: FIX
+  #   note: "Module comments need alignment to match existing Snowflake state"
+
+  # Example: Skip harmless computed attribute refresh
+  # - address: "module.snowdrift"
+  #   reason: "show_output refresh"
+  #   status: SKIP
+  #   note: "Harmless computed attribute, no real change"
+
+  # Example: Match by address pattern only
+  # - address: "module.dms.*replication_task"
+  #   status: FIX
+  #   note: "start_replication_task config must match live state"

@@ -1,8 +1,10 @@
 # Claudio v2.1 - Docker Compose Configuration
 #
-# Two services:
+# Services:
 # - claudio-standalone: Full standalone service (CI/CD, testing, non-VS Code use)
 # - devcontainer: VS Code attaches here (extends standalone)
+# - silverbullet: Browser-based markdown knowledge base
+# - devcontainer-test: Side-by-side testing service
 
 services:
   # Base service - standalone capable, all runtime config here
@@ -28,45 +30,34 @@ services:
         BUILD_HOSTNAME: ${BUILD_HOSTNAME:-unknown}
     image: ${COMPOSE_PROJECT_NAME:-claudio}-base:${TAG:-develop}
     hostname: claudio
-
-    # Security capabilities for firewall
     cap_add:
       - NET_ADMIN
       - NET_RAW
 
     volumes:
-      # Workspace bind mount
       - .:/workspace:cached
-      # Shared volume (auth, plugins, caches)
       - claudio-shared:/home/dev/.claudio-shared
-      # Standalone-specific volumes (not used when VS Code overrides)
+      # Standalone-specific (overridden by devcontainer.json mounts)
       - claudio-standalone:/home/dev/.claudio
       - commandhistory-standalone:/commandhistory
 
     environment:
-      # Claudio paths
       CLAUDE_CONFIG_DIR: /home/dev/.claude
       CLAUDIO_HOME: /home/dev/.claudio
       CLAUDIO_SHARED: /home/dev/.claudio-shared
-      # Shell
       SHELL: /bin/zsh
       EDITOR: nano
-      # Locale
       TZ: ${TZ:-UTC}
       LANG: C.UTF-8
       LC_ALL: C.UTF-8
 
-    # Entrypoint from Dockerfile handles: permission fixes, init-claudio, sleep infinity
-
-    # Healthcheck
     healthcheck:
-      test: ["CMD", "sh", "-c", "which claude && which codex"]
+      test: ["CMD", "sh", "-c", "command -v claude >/dev/null && command -v codex >/dev/null"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
 
-    # Resource limits
     deploy:
       resources:
         limits:
@@ -76,22 +67,18 @@ services:
           cpus: '1.0'
           memory: 2G
 
-    # Labels
     labels:
       com.claudio.description: "Claude Code development container"
       com.claudio.service: "standalone"
       com.claudio.version: "2.1.0"
       com.claudio.project: "claudio"
 
-    # Network
     networks:
       - dev-network
-
-    # Restart policy
     restart: unless-stopped
 
-  # VS Code devcontainer - extends standalone
-  # devcontainer.json adds: per-container volumes, SSH/GPG mounts, features
+  # VS Code devcontainer — extends standalone
+  # devcontainer.json adds: persistent volumes, features
   devcontainer:
     extends:
       service: claudio-standalone
@@ -99,15 +86,42 @@ services:
       - "5565:5565"
     volumes:
       - /home/kschepis/workspaces/mpulse:/workspace/mpulse:cached
+      - /home/kschepis/dev-container-backups:/workspace/backups:ro
+    depends_on:
+      leafwiki:
+        condition: service_healthy
     labels:
       com.claudio.service: "devcontainer"
 
+  # LeafWiki — lightweight markdown wiki
+  # http://localhost:3000 (host)
+  leafwiki:
+    image: ghcr.io/perber/leafwiki:latest
+    ports:
+      - "3000:8080"
+    volumes:
+      - ./.sandbox:/app/data/sandbox:cached
+      - /home/kschepis/workspaces/mpulse/hxi-infra:/app/data/hxi-infra:cached
+      - mpulse-claudio:/app/data/mpulse-claude
+    command: --disable-auth --allow-insecure
+    restart: unless-stopped
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      com.claudio.service: "leafwiki"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
   # Test service for developing the devcontainer itself
-  # Usage:
-  #   docker compose build devcontainer-test
-  #   docker compose up -d devcontainer-test
-  #   docker compose exec devcontainer-test zsh
-  #   # Test your changes, then swap in devcontainer.json: "service": "devcontainer-test"
   devcontainer-test:
     extends:
       service: claudio-standalone
@@ -120,22 +134,27 @@ services:
       com.claudio.service: "devcontainer-test"
 
 volumes:
-  # Shared volume for auth, plugins, caches (external - create with create-volumes.sh)
+  # External volumes — persist across rebuilds, created via create-volumes.sh
   claudio-shared:
     external: true
     name: claudio-shared
+  claudio-dev:
+    external: true
+    name: claudio-dev
+  claudio-history:
+    external: true
+    name: claudio-history
+  mpulse-claudio:
+    external: true
+    name: mpulse-claudio
 
-  # Standalone service volumes (used when running without VS Code)
+  # Standalone service volumes
   claudio-standalone:
   commandhistory-standalone:
 
-  # Test service volumes (for developing the devcontainer)
+  # Test service volumes
   claudio-test:
   commandhistory-test:
-
-  # Note: Per-container volumes are created via devcontainer.json:
-  # - claudio-${devcontainerId} (per-container state)
-  # - claudio-history-${devcontainerId} (per-container shell history)
 
 networks:
   dev-network:
