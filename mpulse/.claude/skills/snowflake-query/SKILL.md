@@ -9,16 +9,29 @@ Query Snowflake by writing SQL files that the user reviews and executes via `sno
 
 ## How It Works
 
-1. **You write SQL** to `.claude/snowflake/<name>.sql` (relative to the project root)
+1. **You write SQL** to `/tmp/claude/snowflake/{project}/<name>.sql`
 2. **You tell the user** the full path to review + the exact command to run
 3. **The user runs it** — you never execute queries directly
-4. **You read the output** from `.claude/snowflake/<name>-out.txt`
+4. **You read the output** from `/tmp/claude/snowflake/{project}/{env}/<name>-out.txt`
 
-## Directory Resolution
+- `{project}` = basename of the git repo root (e.g., `hxi-infra`)
+- `{env}` = derived from the `-c` connection name (e.g., `mp_de_qa` → `qa`)
 
-The `snow-2-claude` script traverses upward from the current directory to find the nearest `.claude/` folder (like git finds `.git/`), then uses `.claude/snowflake/` inside it. Falls back to `~/.claude/snowflake/`.
+SQL files go in the base project dir. Output files go in the env subfolder. The same SQL can be run against different environments — each gets its own output.
 
-When writing SQL files, use the `.claude/snowflake/` path relative to the project root you're working in.
+The `-c` flag is **required** — it determines both the Snowflake connection and the output subfolder.
+
+## Connection → Environment Mapping
+
+| Connection | Env subfolder | Account |
+|------------|---------------|---------|
+| `mp_de_qa` | `qa/` | VJB21090 |
+| `mp_de_stage` | `stage/` | MEB84506 |
+| `mp_de_prod` | `prod/` | YZB01027 |
+| `data_ops_dev` | `data_ops_dev/` | NMB10465 |
+| `data_ops_prod` | `data_ops_prod/` | EGC79305 |
+| `dpi_ml_prod` | `dpi_ml_prod/` | tob70205 |
+| `edw-develop` | `edw_develop/` | oab27176 |
 
 ## Writing the SQL File
 
@@ -41,45 +54,28 @@ After writing the SQL file, ALWAYS output:
 
 1. A brief description of what the query does
 2. The **full absolute path** to the SQL file (so the user can click to review)
-3. The **exact command** to run
+3. The **exact command** to run (always includes `-c`)
 
 Format:
 
 ```
 I've written a query to [description].
 
-**SQL file:** `/full/path/to/.claude/snowflake/<name>.sql`
+**SQL file:** `/tmp/claude/snowflake/{project}/<name>.sql`
 
 Run it with:
 ```
-snow-2-claude <name>.sql
+snow-2-claude <name>.sql -c <connection>
 ```
 ```
-
-### Specifying a connection
-
-If the task requires a specific Snowflake account, include the `-c` flag:
-
-```
-snow-2-claude <name>.sql -c data_ops_prod
-```
-
-Available connections (from ~/.snowflake/connections.toml):
-- `data_ops_dev` — Data Ops Dev/QA (NMB10465)
-- `data_ops_prod` — Data Ops Prod (EGC79305)
-- `dpi_ml_prod` — ML Prod (tob70205)
-- `mp_de_qa` — mPulse DE QA (vjb21090)
-- `mp_de_stage` — mPulse DE Stage (MEB84506)
-- `mp_de_prod` — mPulse DE Prod (yzb01027)
-- `edw-develop` — EDW Dev (oab27176)
 
 ### Specifying output format
 
 Default is TABLE. Use `-f` to change:
 
 ```
-snow-2-claude <name>.sql -f JSON
-snow-2-claude <name>.sql -f CSV
+snow-2-claude <name>.sql -c mp_de_qa -f JSON
+snow-2-claude <name>.sql -c mp_de_qa -f CSV
 ```
 
 ## Reading Results
@@ -88,11 +84,12 @@ After the user confirms they ran the query, read the output file:
 - `run.sql` → `run-out.txt`
 - `check-grants.sql` → `check-grants-out.txt`
 
-The output file is in the same `.claude/snowflake/` directory as the SQL file.
+The output file is in `/tmp/claude/snowflake/{project}/{env}/` (the env subfolder, not the SQL file's directory).
 
 ## Rules
 
 - **NEVER** execute `snow-2-claude` or `snow sql` directly via the Bash tool
+- **ALWAYS** include `-c <connection>` in the command (it is required)
 - **ALWAYS** print the full absolute path to the SQL file
 - **ALWAYS** print the exact command for the user to run
 - **ALWAYS** wait for the user to confirm execution before reading output

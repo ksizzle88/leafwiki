@@ -1,27 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# snow-2-claude: Run a SQL file via Snowflake CLI, save output for Claude to read.
+# pg-2-claude: Run a SQL file against PostgreSQL, save output for Claude to read.
 #
-# Usage: snow-2-claude [--dry-run] [filename] [-c connection] [-f format] [-t timeout]
-#        snow-2-claude clean [--dry-run] [-c connection]
+# Usage: pg-2-claude [--dry-run] [filename] -c connection [-f format] [-t timeout]
+#        pg-2-claude clean [--dry-run] [-c connection]
+#        pg-2-claude connections
 #
 #   filename     SQL file to run (default: run.sql)
-#                Resolved relative to /tmp/claude/snowflake/{project}/{env}/
-#   -c conn      Snowflake connection profile (REQUIRED — determines env subfolder)
+#   -c conn      Connection profile from ~/.pg-2-claude.toml (REQUIRED)
 #   -f format    Output format: TABLE, JSON, CSV (default: TABLE)
-#   -t timeout   Timeout in seconds (default: 120)
+#   -t timeout   Query timeout in seconds (default: 120)
 #   --dry-run    Print the command that would be executed, but don't run it
-#   clean        Remove all .sql and -out.txt files from the snowflake directory
+#   clean        Remove all .sql and -out.txt files
+#   connections  List available connection profiles
 #
-# Directory: /tmp/claude/snowflake/{project}/{env}/
+# Directory: /tmp/claude/postgres/{project}/{env}/
 #   {project} = basename of git repo root
-#   {env}     = derived from connection name (e.g., mp_de_qa → qa)
+#   {env}     = connection profile name
 
 usage() {
     sed -n '3,18p' "$0" | sed 's/^# \?//'
     exit "${1:-0}"
 }
+
+CONFIG_FILE="$HOME/.pg-2-claude.toml"
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+PYTHON_RUNNER="$SCRIPT_DIR/pg-runner.py"
 
 # --- Resolve project name from git root or PWD ---
 resolve_project_name() {
@@ -30,26 +35,45 @@ resolve_project_name() {
     basename "$root"
 }
 
-# --- Map connection name to env subfolder ---
-connection_to_env() {
-    local conn="$1"
-    case "$conn" in
-        mp_de_qa)       echo "qa" ;;
-        mp_de_stage)    echo "stage" ;;
-        mp_de_prod)     echo "prod" ;;
-        data_ops_dev)   echo "data_ops_dev" ;;
-        data_ops_prod)  echo "data_ops_prod" ;;
-        dpi_ml_prod)    echo "dpi_ml_prod" ;;
-        edw-develop)    echo "edw_develop" ;;
-        *)              echo "$conn" ;;
-    esac
+# --- Resolve output directory ---
+resolve_out_dir() {
+    local env="$1"
+    echo "/tmp/claude/postgres/$(resolve_project_name)/$env"
 }
 
-# --- Resolve snowflake directory (requires env) ---
-resolve_snowflake_dir() {
-    local env="$1"
-    echo "/tmp/claude/snowflake/$(resolve_project_name)/$env"
-}
+# --- Handle "connections" subcommand ---
+if [[ "${1:-}" == "connections" ]]; then
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+        echo "No config file found at $CONFIG_FILE"
+        echo ""
+        echo "Create one with connection profiles. Example:"
+        echo ""
+        echo '  [connections.my_db]'
+        echo '  host = "localhost"'
+        echo '  port = 5432'
+        echo '  dbname = "mydb"'
+        echo '  user = "myuser"'
+        echo '  password = "mypass"  # or use PGPASSWORD env var'
+        exit 0
+    fi
+    python3 -c "
+import tomllib, sys
+with open('$CONFIG_FILE', 'rb') as f:
+    cfg = tomllib.load(f)
+conns = cfg.get('connections', {})
+if not conns:
+    print('No connections defined in $CONFIG_FILE')
+    sys.exit(0)
+print(f'Available connections ({len(conns)}):')
+for name, c in conns.items():
+    host = c.get('host', 'localhost')
+    port = c.get('port', 5432)
+    db = c.get('dbname', '?')
+    user = c.get('user', '?')
+    print(f'  {name:20s} {user}@{host}:{port}/{db}')
+"
+    exit 0
+fi
 
 # --- Handle "clean" subcommand ---
 if [[ "${1:-}" == "clean" ]]; then
@@ -64,30 +88,29 @@ if [[ "${1:-}" == "clean" ]]; then
         esac
     done
 
-    # If connection given, clean that env; otherwise clean entire project dir
-    project_dir="/tmp/claude/snowflake/$(resolve_project_name)"
+    project_dir="/tmp/claude/postgres/$(resolve_project_name)"
     if [[ -n "$connection" ]]; then
-        snowflake_dir="$project_dir/$(connection_to_env "$connection")"
+        target_dir="$project_dir/$connection"
     else
-        snowflake_dir="$project_dir"
+        target_dir="$project_dir"
     fi
 
-    if [[ ! -d "$snowflake_dir" ]]; then
-        echo "Nothing to clean: $snowflake_dir does not exist"
+    if [[ ! -d "$target_dir" ]]; then
+        echo "Nothing to clean: $target_dir does not exist"
         exit 0
     fi
 
     files=()
     while IFS= read -r -d '' f; do
         files+=("$f")
-    done < <(find "$snowflake_dir" \( -name '*.sql' -o -name '*-out.txt' \) -print0 2>/dev/null)
+    done < <(find "$target_dir" \( -name '*.sql' -o -name '*-out.txt' \) -print0 2>/dev/null)
 
     if [[ ${#files[@]} -eq 0 ]]; then
-        echo "Nothing to clean in $snowflake_dir"
+        echo "Nothing to clean in $target_dir"
         exit 0
     fi
 
-    echo "Snowflake dir: $snowflake_dir"
+    echo "Postgres dir: $target_dir"
     echo ""
     for f in "${files[@]}"; do
         if $dry_run; then
@@ -134,16 +157,15 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$connection" ]]; then
-    echo "Error: -c connection is required (determines env subfolder)" >&2
+    echo "Error: -c connection is required" >&2
     usage 1
 fi
 
 sql_file="${sql_file:-run.sql}"
-env="$(connection_to_env "$connection")"
 
 # --- Resolve directories ---
-base_dir="/tmp/claude/snowflake/$(resolve_project_name)"
-out_dir="$(resolve_snowflake_dir "$env")"
+base_dir="/tmp/claude/postgres/$(resolve_project_name)"
+out_dir="$(resolve_out_dir "$connection")"
 mkdir -p "$out_dir"
 
 # --- Resolve SQL file path ---
@@ -168,38 +190,40 @@ fi
 sql_basename="$(basename "$sql_file" .sql)"
 out_path="$out_dir/${sql_basename}-out.txt"
 
-# --- Build snow command ---
-snow_args=(sql -f "$sql_path" --format "$format" -c "$connection")
-
 # --- Run it ---
-echo "--- snow-2-claude ---"
+echo "--- pg-2-claude ---"
 echo "  SQL:    $sql_path"
 echo "  Output: $out_path"
 echo "  Format: $format"
-echo "  Conn:   $connection ($env)"
+echo "  Conn:   $connection"
 echo "  Timeout: ${timeout_secs}s"
-echo "---------------------"
+echo "-------------------"
 
 if $dry_run; then
-    echo "  [dry-run] would execute: snow ${snow_args[*]}"
+    echo "  [dry-run] would execute: python3 $PYTHON_RUNNER -c $connection -f $format -t $timeout_secs $sql_path"
     exit 0
 fi
 
-# Run snow with timeout to prevent indefinite hangs (e.g., expired auth tokens
-# triggering browser auth in a non-interactive terminal).
-snow_exit=0
-timeout "$timeout_secs" snow "${snow_args[@]}" 2>&1 | tee "$out_path" || snow_exit=$?
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    echo "Error: Config file not found: $CONFIG_FILE" >&2
+    echo "Run 'pg-2-claude connections' for setup instructions." >&2
+    exit 1
+fi
+
+pg_exit=0
+python3 "$PYTHON_RUNNER" \
+    --config "$CONFIG_FILE" \
+    --connection "$connection" \
+    --format "$format" \
+    --timeout "$timeout_secs" \
+    --sql-file "$sql_path" \
+    2>&1 | tee "$out_path" || pg_exit=$?
 
 echo ""
-if [[ $snow_exit -eq 124 ]]; then
-    echo "ERROR: Query timed out after ${timeout_secs}s" | tee -a "$out_path"
-    echo "  If auth expired, re-authenticate: snow connection test -c ${connection}"
-    echo "  Partial output (if any) saved to: $out_path"
-    exit 1
-elif [[ $snow_exit -ne 0 ]]; then
-    echo "ERROR: snow exited with code $snow_exit" | tee -a "$out_path"
+if [[ $pg_exit -ne 0 ]]; then
+    echo "ERROR: pg-runner exited with code $pg_exit" | tee -a "$out_path"
     echo "  Output (if any) saved to: $out_path"
-    exit "$snow_exit"
+    exit "$pg_exit"
 fi
 
 echo "Output saved to: $out_path"

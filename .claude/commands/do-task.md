@@ -1,7 +1,7 @@
 ---
 description: Run a GitHub Issue through parallel agent teams (research, plan, implement, review)
 argument-hint: <issue-number>
-allowed-tools: Agent, Bash(gh issue *), Bash(gh label *), Bash(bash .taskmaster/*), Bash(chmod *), Bash(git diff*), Bash(git status*), Bash(git log*), Bash(mkdir *), Read, Write, Glob, Grep
+allowed-tools: Agent, Bash(gh issue *), Bash(gh project *), Bash(gh label *), Bash(gh auth *), Bash(bash .taskmaster/*), Bash(chmod *), Bash(git diff*), Bash(git status*), Bash(git log*), Bash(mkdir *), Read, Write, Glob, Grep
 ---
 
 # Do Task: Parallel Agent Team Pipeline
@@ -23,11 +23,30 @@ Run a GitHub Issue through a parallel agent team pipeline. You are the coordinat
 ## Step 0: Read the Task
 
 ```bash
-gh issue view $ARGUMENTS --json number,title,body,labels,state
+# Get task details from the project board
+gh project item-list 2 --owner ksizzle88 --format json | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for item in data.get('items', []):
+    content = item.get('content', {})
+    if str(content.get('number', '')) == '$ARGUMENTS' or item.get('title', '').startswith('$ARGUMENTS'):
+        print(f'Title: {item.get(\"title\")}')
+        print(f'Status: {item.get(\"status\")}')
+        print(f'Priority: {item.get(\"priority\")}')
+        body = content.get('body', '')
+        if body: print(f'Body:\n{body}')
+        break
+"
+
+# Also read the linked issue for full details
+gh issue view $ARGUMENTS --repo ksizzle88/claudio --json number,title,body,labels,state
 ```
 
 ```bash
-gh issue edit $ARGUMENTS --remove-label "status:pending" --remove-label "status:blocked" --add-label "status:in-progress"
+# Update status on the project board (requires project write scope)
+# See coordinator.md Task Board section for field/option IDs
+# Fallback: comment on the linked issue
+gh issue comment $ARGUMENTS --repo ksizzle88/claudio --body "Status: in-progress"
 ```
 
 Show the user the issue title, description, and priority. If dependencies are not `done`, warn the user and ask whether to proceed.
@@ -144,7 +163,10 @@ Give the user a summary of what was implemented (files changed, key outcomes) an
 ## Step 4: Review
 
 ```bash
-gh issue edit $ARGUMENTS --remove-label "status:in-progress" --add-label "status:review"
+# Update status on the project board (requires project write scope)
+# See coordinator.md Task Board section for field/option IDs
+# Fallback: comment on the linked issue
+gh issue comment $ARGUMENTS --repo ksizzle88/claudio --body "Status: review"
 ```
 
 Dispatch `Agent(subagent_type: reviewer)` with:
@@ -163,7 +185,11 @@ Dispatch `Agent(subagent_type: reviewer)` with:
 ### If PASS
 
 ```bash
-gh issue edit $ARGUMENTS --remove-label "status:review" --add-label "status:done" && gh issue close $ARGUMENTS
+# Update status on the project board (requires project write scope)
+# See coordinator.md Task Board section for field/option IDs
+# Fallback: comment on the linked issue and close it
+gh issue comment $ARGUMENTS --repo ksizzle88/claudio --body "Status: done"
+gh issue close $ARGUMENTS --repo ksizzle88/claudio
 ```
 
 Report to the user: what was accomplished, any minor nits the reviewer noted, final status.
@@ -171,7 +197,10 @@ Report to the user: what was accomplished, any minor nits the reviewer noted, fi
 ### If FAIL
 
 ```bash
-gh issue edit $ARGUMENTS --remove-label "status:review" --add-label "status:in-progress"
+# Update status on the project board (requires project write scope)
+# See coordinator.md Task Board section for field/option IDs
+# Fallback: comment on the linked issue
+gh issue comment $ARGUMENTS --repo ksizzle88/claudio --body "Status: in-progress"
 ```
 
 Send the reviewer's issue list back to the relevant implementer(s). Include each issue with severity, file, line, description, and suggested fix.

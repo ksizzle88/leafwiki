@@ -15,6 +15,9 @@ description: >
 Interactive plan-analyze-fix loop for Terraform environments. The agent
 prepares work; the user executes authenticated commands via `tf-2-claude`.
 
+All output files go to `.dev/tf/` under the environment directory.
+Terraform runs from the environment root (where `*.tf` files live).
+
 See `~/.claude/skills/user-exec-bridge/SKILL.md` for the wait/detect pattern.
 
 ## The Loop

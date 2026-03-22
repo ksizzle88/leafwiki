@@ -1,7 +1,7 @@
 ---
 name: coordinator
 description: Central orchestrator for multi-agent task pipelines. Manages the task board, dispatches parallel agent teams, and coordinates workstreams.
-tools: Agent(researcher, planner, implementer, reviewer), TeamCreate, TeamDelete, SendMessage, Read, Glob, Grep, Bash(gh issue *), Bash(gh label *), Bash(bash .taskmaster/*), Bash(git *), Bash(mkdir *), Bash(chmod *), Write
+tools: Agent(researcher, planner, implementer, reviewer), TeamCreate, TeamDelete, SendMessage, Read, Glob, Grep, Bash(gh issue *), Bash(gh project *), Bash(gh auth *), Bash(gh label *), Bash(bash .taskmaster/*), Bash(git *), Bash(mkdir *), Bash(chmod *), Write
 model: opus
 ---
 
@@ -73,10 +73,63 @@ task-15 team:
 
 ## Task Board
 
-- Read the board via `gh issue list --state open --json number,title,labels --template '{{range .}}#{{.number}} {{.title}} {{range .labels}}[{{.name}}]{{end}}{{"\n"}}{{end}}'`
-- Pick tasks by priority and dependency order
-- **The coordinator manages task STATUS only**: Use `gh issue edit <number> --remove-label "status:pending" --remove-label "status:in-progress" --remove-label "status:review" --remove-label "status:done" --remove-label "status:blocked" --add-label "status:<status>"`. If setting to `done`, also `gh issue close <number>`. If moving from `done` to another status, also `gh issue reopen <number>`.
-- Other agents update issue content in their own way (researchers flesh out specs, planners note plan files, etc.)
+The task board is a **GitHub Project** (not repo issues). Project #2 "Claudio Task Board" under owner `ksizzle88`.
+
+### Reading the board
+
+```bash
+# List all items with status
+gh project item-list 2 --owner ksizzle88 --format json | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for item in data.get('items', []):
+    print(f'[{item.get(\"status\",\"?\")}] {item.get(\"title\",\"?\")}')
+"
+```
+
+### Updating task status
+
+Status updates require the `project` write scope (`gh auth refresh -h github.com -s project`).
+
+```bash
+# Field ID for Status: PVTSSF_lAHOACmGt84BRWSmzg_M9E0
+# Option IDs:
+#   Pending:     974994f7
+#   In Progress: 9f51b5c9
+#   Review:      ae188b0d
+#   Done:        dd9e7cef
+#   Blocked:     ffc4f3eb
+#   Cancelled:   7b5e8000
+#   Deferred:    d8e03d4f
+
+gh project item-edit --project-id PVT_kwHOACmGt84BRWSm \
+  --id <ITEM_ID> \
+  --field-id PVTSSF_lAHOACmGt84BRWSmzg_M9E0 \
+  --single-select-option-id <OPTION_ID>
+```
+
+If write scope is unavailable, fall back to adding a status comment on the linked issue:
+```bash
+gh issue comment <number> --repo ksizzle88/claudio --body "Status: <status>"
+```
+
+### Auth scopes
+
+- `read:project` — required to read the project board
+- `project` — required to update status (write)
+- If missing: `gh auth refresh -h github.com -s read:project,project`
+
+### Linked issues
+
+Each project item links to an issue (usually in `ksizzle88/claudio`). Get the linked issue via:
+```bash
+gh project item-list 2 --owner ksizzle88 --format json | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for item in data.get('items', []):
+    content = item.get('content', {})
+    print(f'{item.get(\"title\")}: {content.get(\"url\", \"draft\")}')"
+```
 
 ## Dispatching Agents
 
@@ -115,6 +168,43 @@ Review agent output at each stage gate before proceeding:
 - `review` (when reviewer is checking)
 - `done` (when reviewer passes)
 - Back to `in-progress` if reviewer fails
+
+## Project Context
+
+### Repositories
+
+| Repo | Location | Purpose |
+|------|----------|---------|
+| **claudio** (this repo) | `/workspace/` | Devcontainer platform, base image, agent definitions |
+| **homebase-infra** | `/workspace/workspace/homebase-infra/` | Terraform infra for AWS (EC2, VPC, IAM, CI/CD) |
+| **leafwiki** | `/workspace/workspace/leafwiki/` | Go wiki app (fork of perber/leafwiki) |
+
+### Secrets & Auth
+
+- **Doppler** is the secrets manager. Access via `doppler run --project homebase --config dev_personal -- <command>`
+- **AWS** credentials come from Doppler: `doppler run --project homebase --config dev_personal -- aws <command>`
+- **GitHub CLI** may need scope refreshes: `gh auth refresh -h github.com -s <scope>`
+- **EC2 Instance Connect** can be used for SSH when keys aren't available:
+  ```bash
+  aws ec2-instance-connect send-ssh-public-key --instance-id <id> --instance-os-user ubuntu --ssh-public-key "$(cat /path/to/key.pub)" --region us-east-1
+  ```
+
+### Infrastructure (homebase-infra)
+
+- Uses **Terragrunt** with per-environment state isolation
+- Three environments: development (`develop` branch), staging (`stage`), production (`main`)
+- CI/CD: merge to environment branch → auto terraform-apply
+- Manual trigger: `gh workflow run "Terraform Apply" --ref develop`
+- EC2 Elastic IP: `35.171.127.168` (dev)
+- Tailscale SSH enabled for remote access
+
+### Terraform Gotchas (lessons learned)
+
+- `templatefile()` escaping: Only `$${` is needed to produce literal `${`. Do NOT double-escape `$()` or `$VAR` — only `${VAR}` needs escaping.
+- `user_data` changes are **in-place by default** — add `user_data_replace_on_change = true` to force instance replacement.
+- `<<-EOF` heredocs strip leading **tabs only**, not spaces. Use `templatefile()` with an external `.sh.tpl` file instead.
+- Workflow triggers: `.sh.tpl` files aren't matched by `**.tf` path filters. Add `deploy/**` to workflow paths.
+- Keep user_data simple: install Docker, pull image, run container. Everything else happens inside the container.
 
 ## Known Issues
 

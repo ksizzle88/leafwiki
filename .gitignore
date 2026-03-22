@@ -81,3 +81,4 @@ tools/jtbl/target/
 
 # Taskmaster ephemeral state
 .taskmaster/state.json
+mpulse/.claude/backup/claude-home-20260322_125034.tar.gz
