@@ -33,8 +33,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### First-Time Setup
 
 ```bash
-# Create shared volumes (one-time setup required before building)
-./cli/scripts/create-volumes.sh
+# Create host directory structure (run on WSL host, not inside container)
+mkdir -p ~/.claudio/shared/{auth/gh,config,plugins/{skills,commands,agents,hooks,reference,bin},caches/{npm,pip}}
+mkdir -p ~/.claudio/sessions/{claudio,mpulse}
+
+# Or use the setup script
+./cli/scripts/setup-host-dirs.sh
 
 # Verify Claudio installation and configuration
 claudio verify
@@ -76,57 +80,54 @@ SKIP_IMAGE_BUILD=true git push origin branch-name
 ### Volume Management
 
 ```bash
-# List volumes
-docker volume ls
+# All Claude state lives on the host at ~/.claudio/
+ls ~/.claudio/shared/     # Auth, config, plugins, caches
+ls ~/.claudio/sessions/   # Per-container sessions
 
-# Clean unused volumes
-docker volume prune
-
-# Reset Claude settings (forces re-initialization from defaults)
-docker volume rm claudio-claude-config-<devcontainerId>
+# Reset Claude settings (forces re-initialization)
+rm ~/.claudio/shared/.initialized
+# Then rebuild container
 ```
 
 ## Architecture
 
-### Multi-Layer Volume Strategy
+### Volume Architecture (v3 — Symlink Bind Mounts)
 
-Claudio uses a sophisticated volume system with three isolation levels:
+All Claude state lives on the host at `~/.claudio/` and is bind-mounted into containers.
+`init-claudio` (v3) assembles `~/.claude/` as a directory of symlinks on container start.
+No copying, no timestamp sync, no bidirectional merge.
 
-#### 1. Per-Container Volumes (Isolated)
-- `claudio-claude-config-${devcontainerId}` → `/home/vscode/.claude`
-- `claudio-bashhistory-${devcontainerId}` → `/commandhistory`
+#### Host Layout (`~/.claudio/`)
+```
+~/.claudio/
+├── shared/          ← cross-container (all containers mount this)
+│   ├── auth/        ← .credentials.json, gh/hosts.yml
+│   ├── config/      ← settings.json, mcp.json, CLAUDE.md
+│   ├── plugins/     ← skills/, commands/, agents/, hooks/, reference/, bin/
+│   └── caches/      ← npm/, pip/
+└── sessions/        ← per-container (isolated, persistent)
+    ├── claudio/     ← projects/, teams/, tasks/, file-history/
+    └── mpulse/      ← projects/, teams/, tasks/, file-history/
+```
 
-**Purpose**: Each devcontainer instance gets its own isolated Claude settings and bash history. Prevents conflicts when working on multiple projects simultaneously.
+#### How `~/.claude/` is assembled
+`init-claudio` creates symlinks: auth/config/plugins → shared, sessions → per-container.
+Login in any container → all containers see it immediately (same file via symlink).
 
-#### 2. Shared Volumes (Cross-Container)
-Created via `./cli/scripts/create-volumes.sh`:
+#### Docker Compose volumes
+Named bind mounts via `driver: local` + `driver_opts`:
+```yaml
+claudio-shared:
+  driver: local
+  driver_opts:
+    type: none
+    o: bind
+    device: ${CLAUDIO_ROOT:-/home/kschepis/.claudio}/shared
+```
 
-- `claudio-shared-auth` → `/home/vscode/.claude-shared-auth` - Shared Claude authentication
-- `claudio-gh-auth` → `/home/vscode/.config/gh-shared` - Shared GitHub CLI authentication
-- `claudio-shared-plugins` → `/home/vscode/.claude-shared-plugins` - Custom skills and commands
-- `claudio-shared-mcp` → `/home/vscode/.mcp-shared` - MCP server configurations
-- `claudio-shared-gitconfig` → `/home/vscode/.gitconfig-shared` - Git configuration (when not using project-specific config)
-- `shell-history` → `/home/vscode/.history` - Shell history across all containers
-
-**Purpose**: Enables "configure once, use everywhere" workflow. Authenticate in one container, plugins and credentials sync to all others automatically.
-
-#### 3. Bind Mounts (Live Editing)
+#### Bind Mounts (Live Editing)
 - `.:/workspace:cached` - Project root with cached mode for performance
-- `workspace/` - User project repositories (gitignored)
-- `~/.ssh` → `/home/vscode/.ssh-host` (read-only) - SSH keys from host
-- `~/.gnupg` → `/home/vscode/.gnupg-host` (read-only) - GPG keys from host
-
-### Configuration Sync Mechanism
-
-The `init-claude-settings.sh` script runs on container start and performs bidirectional sync:
-
-1. **Credentials Sync**: Newer credentials (by timestamp) propagate between local and shared volumes
-2. **Plugin Sync**: Skills, commands, and MCP configs sync bidirectionally using `cp -ru` (update only newer files)
-3. **Git Config Sync**: Two modes:
-   - `GIT_USE_PROJECT_CONFIG=true` - Uses environment variables (GIT_USER_NAME, GIT_USER_EMAIL) from .env
-   - `GIT_USE_PROJECT_CONFIG=false` - Syncs with shared gitconfig volume
-
-**Key Insight**: This architecture enables single authentication for all containers while maintaining per-project isolation where needed.
+- `~/.ssh` → `/home/dev/.ssh-host` (read-only) - SSH keys from host
 
 ### Image Build Strategy
 
@@ -137,12 +138,12 @@ The `init-claude-settings.sh` script runs on container start and performs bidire
 - Default Claude settings at `/opt/claudio-defaults/.claude/`
 
 **Initialization Flow**:
-1. Container starts → `postCreateCommand` runs `init-claude-settings.sh`
-2. If `~/.claude` is empty (first run):
-   - Copy from `/opt/claudio-defaults/.claude/` (image defaults)
-   - Overlay with `/workspace/.claude/` (project-specific)
-3. Sync credentials/plugins/git config with shared volumes
-4. Set up SSH/GPG from host mounts
+1. Container starts → entrypoint fixes permissions, copies SSH keys
+2. `init-claudio` (v3) runs:
+   - Seeds shared volume from image defaults (first-ever run only)
+   - Creates session directories
+   - Assembles `~/.claude/` as symlinks → shared + sessions
+   - Sets up gh auth symlink, cache symlinks, skill auto-discovery
 
 ### Configuration Hierarchy
 
@@ -182,7 +183,7 @@ FROM your-existing-image:latest
 # Copy Claudio components
 COPY --from=claudio /usr/bin/node /usr/bin/node
 COPY --from=claudio /usr/lib/node_modules /usr/lib/node_modules
-COPY --from=claudio /usr/local/bin/init-claude-settings.sh /usr/local/bin/
+COPY --from=claudio /usr/local/bin/init-claudio /usr/local/bin/
 COPY --from=claudio /usr/local/bin/install-claudio.sh /usr/local/bin/
 COPY --from=claudio /opt/claudio-defaults/.claude/ /opt/claudio-defaults/.claude/
 
@@ -367,7 +368,8 @@ Common team structures for different task types:
 
 ```bash
 # Verify CLAUDE_CONFIG_DIR
-echo $CLAUDE_CONFIG_DIR  # Should be /home/vscode/.claude
+echo $CLAUDE_CONFIG_DIR  # Should be /home/dev/.claude
+ls -la ~/.claude/.credentials.json  # Should be symlink to .claudio-shared
 
 # Check credentials exist
 ls -la ~/.claude/.credentials.json
@@ -379,17 +381,17 @@ claude login
 # Command Palette → "Dev Containers: Rebuild Container"
 ```
 
-### Shared Volumes Not Syncing
+### Shared Volume Not Mounted
 
 ```bash
-# Verify volumes exist
-docker volume ls | grep claudio-shared
+# Check host directory exists
+ls ~/.claudio/shared/
 
-# Create if missing
-./cli/scripts/create-volumes.sh
+# Verify symlinks in container
+ls -la ~/.claude/  # Should show symlinks to .claudio-shared and .claudio-sessions
 
-# Check sync occurred
-claudio verify
+# Re-run init if needed
+init-claudio
 ```
 
 ### Build Failures
@@ -407,7 +409,7 @@ docker compose logs devcontainer
 
 ## Security Considerations
 
-- Container runs as non-root user (`vscode`)
+- Container runs as non-root user (`dev`)
 - `.dockerignore` excludes secrets from build context
 - Environment variables for sensitive data (never commit .env)
 - Resource limits prevent container sprawl
