@@ -8,9 +8,8 @@ set -e
 # when the container runs as a non-root user.
 
 # Fix ownership of volume-mounted directories if they exist
-# Docker named volumes are created with root:root ownership, which causes
-# "Permission denied" errors when the dev user tries to write to them.
-for dir in /home/dev/.config /home/dev/.local /home/dev/.cache /home/dev/.claude /home/dev/.claudio; do
+# Bind-mounted host dirs may have wrong ownership inside the container.
+for dir in /home/dev/.config /home/dev/.local /home/dev/.cache /home/dev/.claudio-shared /home/dev/.claudio-sessions; do
     if [ -d "$dir" ]; then
         chown -R dev:dev "$dir" 2>/dev/null || true
     fi

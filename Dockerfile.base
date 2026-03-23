@@ -175,15 +175,13 @@ RUN chmod +x /usr/local/lib/claudio/claudio 2>/dev/null || true \
     && ln -sf /usr/local/lib/claudio/claudio /usr/local/bin/claudio
 
 # Layer 14: Initialization scripts and entrypoint
-COPY .devcontainer/init-claude-settings.sh /usr/local/bin/init-claude-settings.sh
 COPY .devcontainer/install-claudio.sh /usr/local/bin/install-claudio.sh
 COPY .devcontainer/init-firewall.sh /usr/local/bin/init-firewall.sh
 COPY .devcontainer/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-COPY cli/scripts/init-claudio.sh /usr/local/bin/init-claudio
+COPY cli/scripts/init-claudio-v3.sh /usr/local/bin/init-claudio
 COPY cli/scripts/task-master-wrapper.sh /usr/local/bin/task-master
 COPY cli/scripts/wait-for-output.sh /usr/local/bin/wait-for-output
-RUN chmod +x /usr/local/bin/init-claude-settings.sh \
-    && chmod +x /usr/local/bin/install-claudio.sh \
+RUN chmod +x /usr/local/bin/install-claudio.sh \
     && chmod +x /usr/local/bin/init-firewall.sh \
     && chmod +x /usr/local/bin/docker-entrypoint.sh \
     && chmod +x /usr/local/bin/init-claudio \

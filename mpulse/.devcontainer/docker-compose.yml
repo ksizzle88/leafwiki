@@ -1,5 +1,8 @@
 # mpulse devcontainer - Docker Compose
 # Projects: DPI_Analytics_DBT, hxi-infra, data-pipelines/snowflake-export
+#
+# Volume strategy: Named bind mounts to ~/.claudio/ on host.
+# Shares claudio-shared with base Claudio container.
 
 services:
   devcontainer:
@@ -26,16 +29,11 @@ services:
       - ${CONFIG_HOME:-$HOME}/.ssh:/home/dev/.ssh-host:ro
       # Persisted snowflake config (seeded from host on first run)
       - mpulse-snowflake:/home/dev/.snowflake
-      # Shared Claudio auth/plugins volume
+      # Claudio v3: shared auth/config/plugins + per-container sessions
       - claudio-shared:/home/dev/.claudio-shared
-      # Claude config and shell history
-      - mpulse-claudio:/home/dev/.claudio
-      - mpulse-history:/commandhistory
+      - mpulse-sessions:/home/dev/.claudio-sessions
       # Hashicorp suite env and creds (Vault, Nomad, Consul)
       - ${CONFIG_HOME:-$HOME}/.envs:/home/dev/.envs:ro
-      # - ${CONFIG_HOME:-$HOME}/.vault-mpulse-qa.json:/home/dev/.vault-mpulse-qa.json
-      # - ${CONFIG_HOME:-$HOME}/.nomad-mpulse-qa.json:/home/dev/.nomad-mpulse-qa.json
-      # - ${CONFIG_HOME:-$HOME}/.consul-mpulse-qa.json:/home/dev/.consul-mpulse-qa.json
       # Azure credentials (persisted, seeded by entrypoint if needed)
       - mpulse-azure:/home/dev/.azure
       # Persist container settings and configs
@@ -44,9 +42,9 @@ services:
       - mpulse-cache:/home/dev/.cache
 
     environment:
-      # Claudio paths
-      CLAUDIO_HOME: /home/dev/.claudio
+      # Claudio v3 paths
       CLAUDIO_SHARED: /home/dev/.claudio-shared
+      CLAUDIO_SESSIONS: /home/dev/.claudio-sessions
       CLAUDE_CONFIG_DIR: /home/dev/.claude
       # SSH (keys mounted directly, no agent forwarding)
       SSH_AUTH_SOCK: ${SSH_AUTH_SOCK:-}
@@ -73,11 +71,6 @@ services:
       - path: .env
         required: false
 
-    # VS Code auto-forwards ports dynamically, so these are not needed normally.
-    # Uncomment if OIDC callbacks (Vault port 8250, Azure, etc.) fail to reach the container.
-    # ports:
-    #   - "8250:8250"
-
     healthcheck:
       test: ["CMD", "sh", "-c", "command -v claude && command -v dbt"]
       interval: 2m
@@ -97,7 +90,7 @@ services:
     labels:
       com.claudio.description: "mpulse data engineering devcontainer"
       com.claudio.project: "mpulse"
-      com.claudio.version: "1.0.0"
+      com.claudio.version: "3.0.0"
 
     networks:
       - dev-network
@@ -105,13 +98,23 @@ services:
     restart: unless-stopped
 
 volumes:
+  # Named bind mount — shared across all Claudio containers
   claudio-shared:
-    external: true
-    name: claudio-shared
-  mpulse-claudio:
-    external: true
-    name: mpulse-claudio
-  mpulse-history:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${CLAUDIO_ROOT:-/home/kschepis/.claudio}/shared
+
+  # Named bind mount — persistent mpulse sessions
+  mpulse-sessions:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${CLAUDIO_ROOT:-/home/kschepis/.claudio}/sessions/mpulse
+
+  # Existing mpulse tool volumes
   mpulse-config:
   mpulse-local:
   mpulse-cache:

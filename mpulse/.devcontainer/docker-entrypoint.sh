@@ -9,8 +9,8 @@ VOLUME_DIRS="
     /home/dev/.config
     /home/dev/.local
     /home/dev/.cache
-    /home/dev/.claude
-    /home/dev/.claudio
+    /home/dev/.claudio-shared
+    /home/dev/.claudio-sessions
     /home/dev/.azure
 "
 for dir in $VOLUME_DIRS; do
@@ -23,18 +23,6 @@ done
 if [ -d /home/dev/.local/bin ]; then
     chmod 755 /home/dev/.local/bin 2>/dev/null || true
     find /home/dev/.local/bin -type f -exec chmod 755 {} \; 2>/dev/null || true
-fi
-
-# --- Ensure ~/.claude points to volume-backed path ---
-CLAUDE_DIR="/home/dev/.claudio/claude"
-if [ ! -L /home/dev/.claude ]; then
-    mkdir -p "$CLAUDE_DIR"
-    if [ -d /home/dev/.claude ]; then
-        cp -a /home/dev/.claude/. "$CLAUDE_DIR/" 2>/dev/null || true
-        rm -rf /home/dev/.claude
-    fi
-    ln -sf "$CLAUDE_DIR" /home/dev/.claude
-    chown -h dev:dev /home/dev/.claude
 fi
 
 # --- SSH key copy from read-only host mount ---

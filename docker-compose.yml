@@ -1,9 +1,13 @@
-# Claudio v2.1 - Docker Compose Configuration
+# Claudio v3 - Docker Compose Configuration
+#
+# Volume strategy: Named bind mounts to ~/.claudio/ on host.
+# - claudio-shared: auth, config, plugins, caches (cross-container)
+# - claudio-sessions: projects, teams, tasks (per-container, persistent)
 #
 # Services:
 # - claudio-standalone: Full standalone service (CI/CD, testing, non-VS Code use)
 # - devcontainer: VS Code attaches here (extends standalone)
-# - silverbullet: Browser-based markdown knowledge base
+# - leafwiki: Browser-based markdown knowledge base
 # - devcontainer-test: Side-by-side testing service
 
 services:
@@ -37,14 +41,13 @@ services:
     volumes:
       - .:/workspace:cached
       - claudio-shared:/home/dev/.claudio-shared
-      # Standalone-specific (overridden by devcontainer.json mounts)
-      - claudio-standalone:/home/dev/.claudio
-      - commandhistory-standalone:/commandhistory
+      # Standalone gets ephemeral sessions (overridden by devcontainer.json)
+      - claudio-standalone-sessions:/home/dev/.claudio-sessions
 
     environment:
       CLAUDE_CONFIG_DIR: /home/dev/.claude
-      CLAUDIO_HOME: /home/dev/.claudio
       CLAUDIO_SHARED: /home/dev/.claudio-shared
+      CLAUDIO_SESSIONS: /home/dev/.claudio-sessions
       SHELL: /bin/zsh
       EDITOR: nano
       TZ: ${TZ:-UTC}
@@ -70,7 +73,7 @@ services:
     labels:
       com.claudio.description: "Claude Code development container"
       com.claudio.service: "standalone"
-      com.claudio.version: "2.1.0"
+      com.claudio.version: "3.0.0"
       com.claudio.project: "claudio"
 
     networks:
@@ -78,7 +81,7 @@ services:
     restart: unless-stopped
 
   # VS Code devcontainer — extends standalone
-  # devcontainer.json adds: persistent volumes, features
+  # devcontainer.json overrides sessions volume with persistent bind mount
   devcontainer:
     extends:
       service: claudio-standalone
@@ -102,7 +105,7 @@ services:
     volumes:
       - ./.sandbox:/app/data/sandbox:cached
       - /home/kschepis/workspaces/mpulse/hxi-infra:/app/data/hxi-infra:cached
-      - mpulse-claudio:/app/data/mpulse-claude
+      - claudio-shared:/app/data/claudio-shared:ro
     command: --disable-auth --allow-insecure
     restart: unless-stopped
     networks:
@@ -128,33 +131,32 @@ services:
     volumes:
       - .:/workspace:cached
       - claudio-shared:/home/dev/.claudio-shared
-      - claudio-test:/home/dev/.claudio
-      - commandhistory-test:/commandhistory
+      - claudio-test-sessions:/home/dev/.claudio-sessions
     labels:
       com.claudio.service: "devcontainer-test"
 
 volumes:
-  # External volumes — persist across rebuilds, created via create-volumes.sh
+  # Named bind mount — shared auth, config, plugins, caches
   claudio-shared:
-    external: true
-    name: claudio-shared
-  claudio-dev:
-    external: true
-    name: claudio-dev
-  claudio-history:
-    external: true
-    name: claudio-history
-  mpulse-claudio:
-    external: true
-    name: mpulse-claudio
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${CLAUDIO_ROOT:-/home/kschepis/.claudio}/shared
 
-  # Standalone service volumes
-  claudio-standalone:
-  commandhistory-standalone:
+  # Named bind mount — persistent Claudio devcontainer sessions
+  claudio-sessions:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${CLAUDIO_ROOT:-/home/kschepis/.claudio}/sessions/claudio
 
-  # Test service volumes
-  claudio-test:
-  commandhistory-test:
+  # Ephemeral sessions for standalone service
+  claudio-standalone-sessions:
+
+  # Ephemeral sessions for test service
+  claudio-test-sessions:
 
 networks:
   dev-network:

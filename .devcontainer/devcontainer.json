@@ -1,5 +1,5 @@
 {
-    "name": "Claudio v2.1",
+    "name": "Claudio v3",
     "dockerComposeFile": "../docker-compose.yml",
     "service": "devcontainer",
     "workspaceFolder": "/workspace",
@@ -10,10 +10,9 @@
     "features": {
         "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
     },
-    // Persistent volumes — external, survive rebuilds and down -v
+    // Override standalone's ephemeral sessions with persistent bind mount
     "mounts": [
-        "source=claudio-dev,target=/home/dev/.claudio,type=volume",
-        "source=claudio-history,target=/commandhistory,type=volume"
+        "source=claudio-sessions,target=/home/dev/.claudio-sessions,type=volume"
     ],
     // Note: init-claudio and firewall init are handled by docker-entrypoint.sh
     // VS Code customizations
