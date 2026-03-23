@@ -31,6 +31,8 @@ exploration-*/
 mpulse/*
 !mpulse/.devcontainer/
 !mpulse/.claude/
+!mpulse/.tools/
+!mpulse/.claude/
 
 #backuups some disaster recovery fun!
 backups/*

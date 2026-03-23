@@ -95,6 +95,9 @@ services:
           cpus: '2.0'
           memory: 4G
 
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
     labels:
       com.claudio.description: "mpulse data engineering devcontainer"
       com.claudio.project: "mpulse"

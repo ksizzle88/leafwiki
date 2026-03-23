@@ -1,0 +1,21 @@
+server:
+  port: 9999
+  pool_size: 5
+
+connections:
+  dp_config:
+    server: db7
+    database: dp_config
+    trusted: true
+
+  # dp_config_stage:
+  #   server: db7-stage
+  #   database: dp_config
+  #   trusted: true
+
+  # example_with_password:
+  #   server: some-server
+  #   database: some_db
+  #   trusted: false
+  #   user: sa
+  #   password: changeme

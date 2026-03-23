@@ -4,7 +4,7 @@
     "service": "devcontainer",
     "workspaceFolder": "/workspace",
     "remoteUser": "dev",
-    "initializeCommand": "docker volume inspect claudio-shared >/dev/null 2>&1 || echo 'WARNING: claudio-shared volume not found. Run create-volumes.sh first.'",
+    "initializeCommand": "docker volume inspect claudio-shared >/dev/null 2>&1 || echo 'WARNING: claudio-shared volume not found.'; curl -sf http://localhost:9999/health >/dev/null 2>&1 && echo 'MSSQL Proxy: running' || echo 'WARNING: MSSQL Proxy not running. Start it: cd mpulse/.tools/mssql-proxy && start.bat'",
     "customizations": {
         "vscode": {
             "settings": {

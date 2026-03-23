@@ -1,0 +1,40 @@
+connections:
+  snowflake:
+    mp_de_qa:
+      env: qa
+      label: "mPulse DE QA (VJB21090)"
+    mp_de_stage:
+      env: stage
+      label: "mPulse DE Stage (MEB84506)"
+    mp_de_prod:
+      env: prod
+      label: "mPulse DE Prod (YZB01027)"
+    data_ops_dev:
+      env: data_ops_dev
+      label: "Data Ops Dev (NMB10465)"
+    data_ops_prod:
+      env: data_ops_prod
+      label: "Data Ops Prod (EGC79305)"
+    dpi_ml_prod:
+      env: dpi_ml_prod
+      label: "DPI ML Prod (tob70205)"
+    edw-develop:
+      env: edw_develop
+      label: "EDW Develop (oab27176)"
+
+  mssql:
+    dp_config:
+      server: db7
+      database: dp_config
+      env: dp_config
+      label: "DP Config (db7)"
+
+  # postgres:
+  #   edw_postgres:
+  #     host: "vault://secret/data/edw/postgres#host"
+  #     port: 5432
+  #     database: "vault://secret/data/edw/postgres#database"
+  #     user: "vault://secret/data/edw/postgres#user"
+  #     password: "vault://secret/data/edw/postgres#password"
+  #     env: edw_postgres
+  #     label: "EDW PostgreSQL"
