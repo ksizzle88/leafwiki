@@ -120,6 +120,11 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
     && mv /root/.local/bin/uv /usr/local/bin/uv \
     && mv /root/.local/bin/uvx /usr/local/bin/uvx
 
+# Layer 7c: Bun runtime (for Telegram channel MCP server and other plugins)
+RUN curl -fsSL https://bun.sh/install | bash \
+    && mv /root/.bun/bin/bun /usr/local/bin/bun \
+    && ln -sf /usr/local/bin/bun /usr/local/bin/bunx
+
 # Layer 8: Environment configuration
 # Note: CLAUDE_CONFIG_DIR uses $HOME at runtime, not hardcoded path
 ENV npm_config_update_notifier=false \

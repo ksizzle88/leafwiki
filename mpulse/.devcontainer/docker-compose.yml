@@ -57,6 +57,10 @@ services:
       LC_ALL: C.UTF-8
       # dbt profile location
       DBT_PROFILES_DIR: /workspace/DPI_Analytics_DBT/dbt-profiles
+      # Snowflake SSO callback (fixed port for container browser auth)
+      SF_AUTH_SOCKET_PORT: "3037"
+      SNOWFLAKE_AUTH_SOCKET_REUSE_PORT: "true"
+      SNOWFLAKE_AUTH_SOCKET_MSG_DONTWAIT: "true"
       # Snowflake (values come from .env)
       SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT:-}
       SNOWFLAKE_USER: ${SNOWFLAKE_USER:-}
@@ -71,6 +75,9 @@ services:
       - path: .env
         required: false
 
+    ports:
+      - "3037:3037"
+
     healthcheck:
       test: ["CMD", "sh", "-c", "command -v claude && command -v dbt"]
       interval: 2m
@@ -81,8 +88,9 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '4.0'
-          memory: 8G
+          ### high limits as this is where I do most of my work. 
+          cpus: '12.0'
+          memory: 16G
         reservations:
           cpus: '2.0'
           memory: 4G

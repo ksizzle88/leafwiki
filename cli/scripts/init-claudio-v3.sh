@@ -11,6 +11,13 @@ CLAUDE_DIR="$HOME/.claude"
 DEFAULTS="/opt/claudio-defaults/.claude"
 PROJECT="/workspace/.claude"
 
+# Source shared env (long-lived auth token, etc.)
+if [ -f "$SHARED/config/.env" ]; then
+    set -a
+    . "$SHARED/config/.env"
+    set +a
+fi
+
 echo "Claudio v3: Initializing..."
 
 # --- Phase 1: Seed shared volume (first-ever run across any container) ---
@@ -119,6 +126,14 @@ done
 
 # --- Phase 7: Shell environment ---
 export CLAUDE_CONFIG_DIR="$HOME/.claude"
+
+# Source shared env in shell profiles (auth token, etc.)
+for profile in "$HOME/.bashrc" "$HOME/.zshrc"; do
+    if [ -f "$profile" ] && ! grep -q "claudio-shared/config/.env" "$profile" 2>/dev/null; then
+        echo '[ -f "$HOME/.claudio-shared/config/.env" ] && set -a && . "$HOME/.claudio-shared/config/.env" && set +a' >> "$profile"
+    fi
+done
+
 for profile in "$HOME/.bashrc" "$HOME/.zshrc"; do
     if [ -f "$profile" ] && ! grep -q "CLAUDE_CONFIG_DIR" "$profile" 2>/dev/null; then
         echo 'export CLAUDE_CONFIG_DIR="$HOME/.claude"' >> "$profile"

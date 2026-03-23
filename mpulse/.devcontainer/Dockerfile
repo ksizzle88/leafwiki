@@ -92,8 +92,8 @@ RUN uv pip install --python /opt/mpulse-venv/bin/python \
     tzdata \
     tabulate
 
-# Install Snowflake CLI (snow) isolated via uv tool — bin symlink to /usr/local/bin
-RUN UV_TOOL_BIN_DIR=/usr/local/bin uv tool install snowflake-cli
+# Install Snowflake CLI (snow) — install to shared path so dev user can access it
+RUN UV_TOOL_BIN_DIR=/usr/local/bin UV_TOOL_DIR=/opt/uv-tools uv tool install snowflake-cli
 
 # Put venv on PATH for all users
 ENV PATH="/opt/mpulse-venv/bin:$PATH"
