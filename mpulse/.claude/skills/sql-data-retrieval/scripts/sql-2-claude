@@ -1,350 +1,230 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env python3
+"""
+sql-2-claude: Unified SQL query router.
 
-# sql-2-claude: Unified SQL router — delegates to platform-specific scripts.
-#
-# Usage: sql-2-claude [filename] -c connection [-t timeout] [--dry-run]
-#        sql-2-claude raw -c connection -- command...
-#        sql-2-claude connections
-#        sql-2-claude clean [-c connection]
-#
-#   filename     SQL file to run (default: run.sql)
-#   -c conn      Connection name from connections.yaml (REQUIRED for query/raw)
-#   -t timeout   Timeout in seconds (default: 120)
-#   --dry-run    Print the command that would be executed, but don't run it
-#   raw          Run an arbitrary command and capture output
-#   connections  List all connections grouped by platform
-#   clean        Remove output files from /tmp/claude/sql/{project}/
-#
-# Directory: /tmp/claude/sql/{project}/{env}/
-#   {project} = basename of git repo root
-#   {env}     = from connections.yaml
+Usage:
+    sql-2-claude <query-name> -c <connection> [-t timeout] [--dry-run] [-- extra-args...]
+    sql-2-claude raw -c <connection> -- <command...>
+    sql-2-claude connections
+    sql-2-claude clean [-c connection]
+"""
 
-usage() {
-    sed -n '3,18p' "$0" | sed 's/^# \?//'
-    exit "${1:-0}"
-}
+from __future__ import annotations
 
-SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
-BASE_OUTPUT_DIR="/tmp/claude/sql"
+import argparse
+import datetime
+import json
+import shutil
+import subprocess
+import sys
+from pathlib import Path
 
-# --- Resolve project name from git root or PWD ---
-resolve_project_name() {
-    local root
-    root="$(git rev-parse --show-toplevel 2>/dev/null)" || root="$PWD"
-    basename "$root"
-}
+# Add scripts dir to path for local imports
+sys.path.insert(0, str(Path(__file__).parent))
 
-# --- Find connections.yaml ---
-find_connections_yaml() {
-    local name="connections.yaml"
-    # 1. $CLAUDE_SKILL_DIR
-    if [[ -n "${CLAUDE_SKILL_DIR:-}" ]]; then
-        [[ -f "$CLAUDE_SKILL_DIR/$name" ]] && { echo "$CLAUDE_SKILL_DIR/$name"; return; }
-        [[ -f "$(dirname "$CLAUDE_SKILL_DIR")/$name" ]] && { echo "$(dirname "$CLAUDE_SKILL_DIR")/$name"; return; }
-    fi
-    # 2. Script's parent dir
-    [[ -f "$(dirname "$SCRIPT_DIR")/$name" ]] && { echo "$(dirname "$SCRIPT_DIR")/$name"; return; }
-    # 3. User fallback
-    [[ -f "$HOME/.$name" ]] && { echo "$HOME/.$name"; return; }
-    echo ""
-}
+from lib.config import find_config, load_config, lookup_connection, list_connections
+from lib.output import write_output, write_error, print_preview
+from lib.resolve import project_name, find_query_sql, check_connection_safety
 
-# --- Look up connection → platform + env (YAML, nested by platform) ---
-lookup_connection() {
-    local conn_name="$1"
-    local yaml_path="$2"
 
-    python3 -c "
-import yaml, sys, json
+BASE_DIR = Path("/tmp/claude/sql")
 
-with open('$yaml_path') as f:
-    cfg = yaml.safe_load(f)
 
-conns = cfg.get('connections', {})
-for platform, entries in conns.items():
-    if not isinstance(entries, dict):
-        continue
-    if '$conn_name' in entries:
-        c = entries['$conn_name']
-        env = c.get('env', '$conn_name') if isinstance(c, dict) else '$conn_name'
-        print(json.dumps({'platform': platform, 'env': env, 'config': c if isinstance(c, dict) else {}}))
-        sys.exit(0)
+def get_platform_module(platform: str):
+    """Import and return the platform execution module."""
+    if platform == "snowflake":
+        from platforms import snowflake
+        return snowflake
+    elif platform == "postgres":
+        from platforms import postgres
+        return postgres
+    elif platform == "mssql":
+        from platforms import mssql
+        return mssql
+    else:
+        print(f"Error: unknown platform '{platform}'", file=sys.stderr)
+        sys.exit(1)
 
-all_names = []
-for platform, entries in conns.items():
-    if isinstance(entries, dict):
-        all_names.extend(entries.keys())
-print(f'Error: connection \"$conn_name\" not found', file=sys.stderr)
-print('Available:', ', '.join(all_names), file=sys.stderr)
-sys.exit(1)
-"
-}
 
-# --- Map platform to script name ---
-platform_to_script() {
-    local platform="$1"
-    case "$platform" in
-        snowflake) echo "snow-2-claude" ;;
-        postgres)  echo "pg-2-claude" ;;
-        mssql)     echo "mssql-2-claude" ;;
-        *)
-            echo "Error: unknown platform '$platform'" >&2
-            exit 1
-            ;;
-    esac
-}
+def cmd_query(args: argparse.Namespace, extra_args: list[str]) -> None:
+    """Run a SQL query."""
+    cfg = load_config()
+    platform, env, conn_cfg = lookup_connection(args.connection, cfg)
 
-# --- Handle "connections" subcommand ---
-if [[ "${1:-}" == "connections" ]]; then
-    yaml_path="$(find_connections_yaml)"
-    if [[ -z "$yaml_path" ]]; then
-        echo "No connections.yaml found. Searched:"
-        echo "  \$CLAUDE_SKILL_DIR/../connections.yaml"
-        echo "  $SCRIPT_DIR/../connections.yaml"
-        echo "  ~/.sql-2-claude.toml"
-        exit 1
-    fi
+    query_name = args.query_name.removesuffix(".sql")
+    project = project_name()
+    query_dir = BASE_DIR / project / env / query_name
+    query_dir.mkdir(parents=True, exist_ok=True)
 
-    python3 -c "
-import yaml, sys
+    # Find SQL file
+    sql_path = find_query_sql(query_name, query_dir, env, BASE_DIR / project)
+    if not sql_path:
+        print(f"Error: SQL file not found. Searched:", file=sys.stderr)
+        print(f"  {query_dir}/query.sql", file=sys.stderr)
+        print(f"  {Path.cwd()}/{query_name}.sql", file=sys.stderr)
+        sys.exit(1)
 
-with open('$yaml_path') as f:
-    cfg = yaml.safe_load(f)
+    # Connection safety check
+    check_connection_safety(sql_path, args.connection)
 
-conns = cfg.get('connections', {})
-if not conns:
-    print('No connections defined in $yaml_path')
-    sys.exit(0)
+    print(f"--- sql-2-claude ---")
+    print(f"  Query:    {query_name}")
+    print(f"  SQL:      {sql_path}")
+    print(f"  Platform: {platform}")
+    print(f"  Conn:     {args.connection} ({env})")
+    print(f"  Timeout:  {args.timeout}s")
+    print(f"---------------------")
 
-total = sum(len(v) for v in conns.values() if isinstance(v, dict))
-print(f'Connections ({total} total) from: $yaml_path')
-print()
-for platform in sorted(conns.keys()):
-    entries = conns[platform]
-    if not isinstance(entries, dict):
-        continue
-    print(f'  {platform} ({len(entries)}):')
-    for name, c in entries.items():
-        env = c.get('env', name) if isinstance(c, dict) else name
-        label = c.get('label', '') if isinstance(c, dict) else ''
-        extra = f'  # {label}' if label else ''
-        print(f'    {name:25s} env={env}{extra}')
+    if args.dry_run:
+        print(f"  [dry-run] would execute via {platform}")
+        print(f"  Output: {query_dir}/")
+        return
+
+    # Execute
+    mod = get_platform_module(platform)
+    try:
+        data = mod.execute(sql_path, args.connection, args.timeout, extra_args or None)
+    except subprocess.TimeoutExpired:
+        write_error(query_dir, f"Query timed out after {args.timeout}s", 124,
+                    f"Re-authenticate or increase timeout (-t)")
+        print(f"\nERROR: Query timed out after {args.timeout}s")
+        print(f"  Error captured to: {query_dir}/")
+        sys.exit(1)
+    except Exception as e:
+        write_error(query_dir, str(e), 1)
+        print(f"\nERROR: {e}")
+        print(f"  Error captured to: {query_dir}/")
+        sys.exit(1)
+
+    # Write output
+    write_output(query_dir, data)
     print()
-"
-    exit 0
-fi
+    print_preview(data, query_dir)
+    print("\a", end="")
 
-# --- Handle "clean" subcommand ---
-if [[ "${1:-}" == "clean" ]]; then
-    shift
-    dry_run=false
-    connection=""
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --dry-run) dry_run=true; shift ;;
-            -c) connection="$2"; shift 2 ;;
-            -h|--help) usage 0 ;;
-            *) echo "Unknown option: $1" >&2; usage 1 ;;
-        esac
-    done
 
-    project_dir="$BASE_OUTPUT_DIR/$(resolve_project_name)"
+def cmd_raw(args: argparse.Namespace, raw_cmd: list[str]) -> None:
+    """Run an arbitrary command and capture output."""
+    if not raw_cmd:
+        print("Error: no command after --", file=sys.stderr)
+        sys.exit(1)
 
-    if [[ -n "$connection" ]]; then
-        # Resolve env from connections.yaml
-        yaml_path="$(find_connections_yaml)"
-        if [[ -n "$yaml_path" ]]; then
-            conn_info="$(lookup_connection "$connection" "$yaml_path")" || exit $?
-            env="$(echo "$conn_info" | python3 -c "import sys,json; print(json.load(sys.stdin)['env'])")"
-            target_dir="$project_dir/$env"
-        else
-            # Fallback: use connection name as env
-            target_dir="$project_dir/$connection"
-        fi
-    else
-        target_dir="$project_dir"
-    fi
+    cfg = load_config()
+    _, env, _ = lookup_connection(args.connection, cfg)
 
-    if [[ ! -d "$target_dir" ]]; then
-        echo "Nothing to clean: $target_dir does not exist"
-        exit 0
-    fi
+    project = project_name()
+    ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    query_dir = BASE_DIR / project / env / f"raw-{ts}"
+    query_dir.mkdir(parents=True, exist_ok=True)
+    out_path = query_dir / "out.txt"
 
-    files=()
-    while IFS= read -r -d '' f; do
-        files+=("$f")
-    done < <(find "$target_dir" \( -name '*.sql' -o -name '*-out.txt' -o -name '*-out.json' \) -print0 2>/dev/null)
+    print(f"--- sql-2-claude raw ---")
+    print(f"  Conn:    {args.connection} ({env})")
+    print(f"  Command: {' '.join(raw_cmd)}")
+    print(f"  Output:  {out_path}")
+    print(f"------------------------")
 
-    if [[ ${#files[@]} -eq 0 ]]; then
-        echo "Nothing to clean in $target_dir"
-        exit 0
-    fi
+    result = subprocess.run(raw_cmd, capture_output=True, text=True)
+    output = result.stdout + result.stderr
+    out_path.write_text(output)
 
-    echo "SQL dir: $target_dir"
-    echo ""
-    for f in "${files[@]}"; do
-        if $dry_run; then
-            echo "  would delete: $(basename "$f")"
-        else
-            echo "  deleting: $(basename "$f")"
-            rm "$f"
-        fi
-    done
+    if result.returncode != 0:
+        print(f"\nWARNING: command exited with code {result.returncode}")
 
-    echo ""
-    if $dry_run; then
-        echo "${#files[@]} file(s) would be deleted. Run without --dry-run to delete."
-    else
-        echo "${#files[@]} file(s) deleted."
-    fi
-    exit 0
-fi
+    lines = output.splitlines()
+    if len(lines) > 50:
+        print("\n".join(lines[:50]))
+        print(f"... ({len(lines)} lines total, showing first 50)")
+    else:
+        print(output)
 
-# --- Handle "raw" subcommand ---
-if [[ "${1:-}" == "raw" ]]; then
-    shift
-    connection=""
-    raw_cmd=()
+    print(f"\nFull output: {out_path}")
+    sys.exit(result.returncode)
 
-    # Parse up to --
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            -c) connection="$2"; shift 2 ;;
-            -h|--help) usage 0 ;;
-            --)
-                shift
-                raw_cmd=("$@")
-                break
-                ;;
-            *) echo "Error: unexpected argument '$1' before --" >&2; usage 1 ;;
-        esac
-    done
 
-    if [[ -z "$connection" ]]; then
-        echo "Error: -c connection is required for raw mode" >&2
-        usage 1
-    fi
+def cmd_clean(args: argparse.Namespace) -> None:
+    """Remove query folders."""
+    project = project_name()
+    project_dir = BASE_DIR / project
 
-    if [[ ${#raw_cmd[@]} -eq 0 ]]; then
-        echo "Error: no command provided after --" >&2
-        usage 1
-    fi
+    if args.connection:
+        cfg = load_config()
+        _, env, _ = lookup_connection(args.connection, cfg)
+        target = project_dir / env
+    else:
+        target = project_dir
 
-    # Look up connection
-    yaml_path="$(find_connections_yaml)"
-    if [[ -z "$yaml_path" ]]; then
-        echo "Error: no connections.yaml found" >&2
-        exit 1
-    fi
+    if not target.is_dir():
+        print(f"Nothing to clean: {target}")
+        return
 
-    conn_info="$(lookup_connection "$connection" "$yaml_path")" || exit $?
-    env="$(echo "$conn_info" | python3 -c "import sys,json; print(json.load(sys.stdin)['env'])")"
+    folders = [d for d in target.iterdir() if d.is_dir() and
+               any((d / f).exists() for f in ("query.sql", "out.json", "out.md"))]
 
-    # Set up output directory
-    project="$(resolve_project_name)"
-    out_dir="$BASE_OUTPUT_DIR/$project/$env"
-    mkdir -p "$out_dir"
+    if not folders:
+        print(f"Nothing to clean in {target}")
+        return
 
-    timestamp="$(date +%Y%m%d-%H%M%S)"
-    out_path="$out_dir/raw-${timestamp}-out.txt"
+    print(f"SQL dir: {target}\n")
+    for d in folders:
+        if args.dry_run:
+            print(f"  would delete: {d.name}/")
+        else:
+            print(f"  deleting: {d.name}/")
+            shutil.rmtree(d)
 
-    echo "--- sql-2-claude raw ---"
-    echo "  Conn:    $connection ($env)"
-    echo "  Command: ${raw_cmd[*]}"
-    echo "  Output:  $out_path"
-    echo "------------------------"
+    n = len(folders)
+    print(f"\n{n} folder(s) {'would be ' if args.dry_run else ''}deleted.")
 
-    # Run the command, capture output
-    raw_exit=0
-    "${raw_cmd[@]}" > "$out_path" 2>&1 || raw_exit=$?
 
-    echo ""
-    if [[ $raw_exit -ne 0 ]]; then
-        echo "WARNING: command exited with code $raw_exit"
-    fi
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="sql-2-claude", description="Unified SQL query router")
+    sub = parser.add_subparsers(dest="command")
 
-    # Show first 50 lines
-    line_count="$(wc -l < "$out_path")"
-    if (( line_count > 50 )); then
-        head -50 "$out_path"
-        echo "... ($line_count lines total, showing first 50)"
-    else
-        cat "$out_path"
-    fi
+    # query (default)
+    q = sub.add_parser("query", help="Run a SQL query")
+    q.add_argument("query_name", help="Query name (becomes folder name)")
+    q.add_argument("-c", "--connection", required=True)
+    q.add_argument("-t", "--timeout", type=int, default=120)
+    q.add_argument("--dry-run", action="store_true")
 
-    echo ""
-    echo "Full output: $out_path"
-    exit "$raw_exit"
-fi
+    # raw
+    r = sub.add_parser("raw", help="Run arbitrary command")
+    r.add_argument("-c", "--connection", required=True)
 
-# --- Query mode: parse arguments and delegate to platform script ---
-sql_file=""
-connection=""
-dry_run=false
-timeout_secs=120
+    # connections
+    sub.add_parser("connections", help="List all connections")
 
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --dry-run) dry_run=true; shift ;;
-        -c) connection="$2"; shift 2 ;;
-        -t) timeout_secs="$2"; shift 2 ;;
-        -h|--help) usage 0 ;;
-        -*) echo "Unknown option: $1" >&2; usage 1 ;;
-        *)
-            if [[ -z "$sql_file" ]]; then
-                sql_file="$1"
-            else
-                echo "Error: unexpected argument '$1'" >&2; usage 1
-            fi
-            shift
-            ;;
-    esac
-done
+    # clean
+    cl = sub.add_parser("clean", help="Remove query folders")
+    cl.add_argument("-c", "--connection", default="")
+    cl.add_argument("--dry-run", action="store_true")
 
-if [[ -z "$connection" ]]; then
-    echo "Error: -c connection is required" >&2
-    usage 1
-fi
+    # Parse — handle the common case where query_name comes first without "query" subcommand
+    argv = sys.argv[1:]
+    if argv and argv[0] not in ("query", "raw", "connections", "clean", "-h", "--help") and not argv[0].startswith("-"):
+        argv = ["query"] + argv
 
-# Look up connection
-yaml_path="$(find_connections_yaml)"
-if [[ -z "$yaml_path" ]]; then
-    echo "Error: no connections.yaml found. Searched:" >&2
-    echo "  \$CLAUDE_SKILL_DIR/../connections.yaml" >&2
-    echo "  $SCRIPT_DIR/../connections.yaml" >&2
-    echo "  ~/.sql-2-claude.toml" >&2
-    exit 1
-fi
+    # Split on -- for extra args passthrough
+    extra_args = []
+    if "--" in argv:
+        idx = argv.index("--")
+        extra_args = argv[idx + 1:]
+        argv = argv[:idx]
 
-conn_info="$(lookup_connection "$connection" "$yaml_path")" || exit $?
-platform="$(echo "$conn_info" | python3 -c "import sys,json; print(json.load(sys.stdin)['platform'])")"
-env="$(echo "$conn_info" | python3 -c "import sys,json; print(json.load(sys.stdin)['env'])")"
+    args = parser.parse_args(argv)
 
-# Find the platform script
-platform_script="$(platform_to_script "$platform")"
-platform_script_path="$SCRIPT_DIR/$platform_script"
+    if args.command == "connections":
+        list_connections()
+    elif args.command == "clean":
+        cmd_clean(args)
+    elif args.command == "raw":
+        cmd_raw(args, extra_args)
+    elif args.command == "query":
+        cmd_query(args, extra_args)
+    else:
+        parser.print_help()
 
-if [[ ! -x "$platform_script_path" ]]; then
-    echo "Error: platform script not found or not executable: $platform_script_path" >&2
-    exit 1
-fi
 
-# Build delegate args
-delegate_args=()
-delegate_args+=(--base-dir "$BASE_OUTPUT_DIR")
-delegate_args+=(--env "$env")
-
-if [[ -n "$sql_file" ]]; then
-    delegate_args+=("$sql_file")
-fi
-
-delegate_args+=(-c "$connection")
-delegate_args+=(-t "$timeout_secs")
-
-if $dry_run; then
-    delegate_args+=(--dry-run)
-fi
-
-# Delegate to platform script
-exec "$platform_script_path" "${delegate_args[@]}"
+if __name__ == "__main__":
+    main()
