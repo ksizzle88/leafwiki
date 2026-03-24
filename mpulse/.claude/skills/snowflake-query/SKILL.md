@@ -12,9 +12,11 @@ Query Snowflake by writing SQL files that the user reviews and executes via `sno
 1. **You write SQL** to `/tmp/claude/snowflake/{project}/<name>.sql`
 2. **You tell the user** the full path to review + the exact command to run
 3. **The user runs it** — you never execute queries directly
-4. **You read the output** from `/tmp/claude/snowflake/{project}/{env}/<name>-out.txt`
+4. **You read the output** — two files are produced:
+   - `/tmp/claude/snowflake/{project}/{env}/<name>-out.json` — raw JSON (read this for data analysis)
+   - `/tmp/claude/snowflake/{project}/{env}/<name>-out.txt` — markdown table (human-readable)
 
-- `{project}` = basename of the git repo root (e.g., `hxi-infra`)
+- `{project}` = basename of the git repo root (e.g., `hxi-infra`, `DPI_Analytics_DBT`)
 - `{env}` = derived from the `-c` connection name (e.g., `mp_de_qa` → `qa`)
 
 SQL files go in the base project dir. Output files go in the env subfolder. The same SQL can be run against different environments — each gets its own output.
@@ -69,22 +71,17 @@ snow-2-claude <name>.sql -c <connection>
 ```
 ```
 
-### Specifying output format
-
-Default is TABLE. Use `-f` to change:
-
-```
-snow-2-claude <name>.sql -c mp_de_qa -f JSON
-snow-2-claude <name>.sql -c mp_de_qa -f CSV
-```
+Output is always dual format — the user sees a markdown table preview in the console, and both JSON and table files are saved.
 
 ## Reading Results
 
-After the user confirms they ran the query, read the output file:
-- `run.sql` → `run-out.txt`
-- `check-grants.sql` → `check-grants-out.txt`
+After the user confirms they ran the query, read the **JSON output** for data analysis:
+- `run.sql` → read `run-out.json`
+- `check-grants.sql` → read `check-grants-out.json`
 
-The output file is in `/tmp/claude/snowflake/{project}/{env}/` (the env subfolder, not the SQL file's directory).
+The **table output** (`-out.txt`) is for the user's quick reference — you don't need to read it.
+
+Output files are in `/tmp/claude/snowflake/{project}/{env}/` (the env subfolder, not the SQL file's directory).
 
 ## Rules
 
@@ -93,6 +90,7 @@ The output file is in `/tmp/claude/snowflake/{project}/{env}/` (the env subfolde
 - **ALWAYS** print the full absolute path to the SQL file
 - **ALWAYS** print the exact command for the user to run
 - **ALWAYS** wait for the user to confirm execution before reading output
+- **ALWAYS** read the `.json` file (not `.txt`) for programmatic data analysis
 - Use `run.sql` for one-off throwaway queries
 - Use descriptive filenames for queries whose results you'll reference later
 - When writing multiple queries in sequence, use different filenames to preserve prior results

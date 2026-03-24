@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "../DPI_Analytics_DBT/data_ops_ingestion"
+		},
+		{
+			"path": "../data-pipelines/snowflake-export"
+		},
+		{
+			"path": "../hxi-infra"
+		},
+		{
+			"path": "../../home/dev/.claude"
+		},
+		{
+			"path": "../../home/dev/.snowflake"
+		}
+	],
+	"settings": {}
+}

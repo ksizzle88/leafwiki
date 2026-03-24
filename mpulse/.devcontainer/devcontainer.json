@@ -26,32 +26,52 @@
                 "dbt.queryLimit": 500,
                 "dbt.queryTemplate": "select * from ({query}) as query limit {limit}",
                 "snowflake.connectionsConfigFile": "/home/dev/.snowflake/connections.toml",
+                "markdown.styles": [".vscode/markdown-preview.css"],
                 "markdown.preview.scrollEditorWithPreview": false,
                 "markdown.preview.scrollPreviewWithEditor": false,
                 "markdown.preview.markEditorSelection": false,
                 "markdown.preview.doubleClickToSwitchToEditor": false,
                 "aws.suppressPrompts": { "codeWhispererConnectionExpired": true },
                 "aws.codeWhisperer.shareCodeWhispererContentWithAWS": false,
+                "aws.telemetry": false,
                 "amazonQ.telemetry": false,
                 "aws.cfn.lint.enabled": false,
-                "yaml.languageserver.enabled": false
+                "aws.cloudformation.diagnostics.cfnGuard.enabled": false,
+                "aws.cloudformation.diagnostics.cfnGuard.validateOnChange": false,
+                "aws.cloudformation.diagnostics.cfnLint.lintOnChange": false,
+                "aws.cloudformation.diagnostics.cfnLint.enabled": false,
+                "aws.cloudformation.hover.enabled": false,
+                "aws.cloudformation.completion.enabled": false,
+                "aws.cloudformation.languageServer.enabled": false,
+                "aws.samcli.manuallySelectedBuckets": [],
+                "yaml.languageserver.enabled": false,
+                "evenBetterToml.taplo.enabled": false
             },
             "extensions": [
                 "anthropic.claude-code",
                 "ms-python.python",
-                "ms-python.pylance",
                 "innoverio.vscode-dbt-power-user",
                 "dorzey.vscode-sqlfluff",
                 "hashicorp.terraform",
                 "ms-azuretools.vscode-docker",
                 "eamodio.gitlens",
-                "redhat.vscode-yaml",
+                "tamasfe.even-better-toml",
+                "samuelcolvin.jinjahtml",
                 "snowflake.snowflake-vsc",
                 "charliermarsh.ruff",
                 "AmazonWebServices.aws-toolkit-vscode",
                 "mkhl.direnv",
-                "bierner.markdown-mermaid"
+                "bierner.markdown-mermaid",
+                "stateful.runme"
             ]
+        }
+    },
+    "forwardPorts": [3037],
+    "portsAttributes": {
+        "3037": {
+            "label": "Snowflake SSO Callback",
+            "onAutoForward": "silent",
+            "protocol": "http"
         }
     }
 }

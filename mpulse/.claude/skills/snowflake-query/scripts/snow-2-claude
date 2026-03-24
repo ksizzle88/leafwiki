@@ -1,25 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# snow-2-claude: Run a SQL file via Snowflake CLI, save output for Claude to read.
+# snow-2-claude: Run a SQL file via Snowflake CLI, save dual output for Claude.
 #
-# Usage: snow-2-claude [--dry-run] [filename] [-c connection] [-f format] [-t timeout]
+# Usage: snow-2-claude [--dry-run] [filename] [-c connection] [-t timeout]
 #        snow-2-claude clean [--dry-run] [-c connection]
 #
 #   filename     SQL file to run (default: run.sql)
-#                Resolved relative to /tmp/claude/snowflake/{project}/{env}/
+#                Resolved relative to /tmp/claude/snowflake/{project}/
 #   -c conn      Snowflake connection profile (REQUIRED — determines env subfolder)
-#   -f format    Output format: TABLE, JSON, CSV (default: TABLE)
 #   -t timeout   Timeout in seconds (default: 120)
 #   --dry-run    Print the command that would be executed, but don't run it
-#   clean        Remove all .sql and -out.txt files from the snowflake directory
+#   clean        Remove all .sql, .json, and -out.txt files from the snowflake directory
+#
+# Output: Always runs with JSON format internally, produces two files:
+#   {name}-out.json  Raw JSON (for Claude to parse programmatically)
+#   {name}-out.txt   Markdown table (human-readable, fixed-width)
 #
 # Directory: /tmp/claude/snowflake/{project}/{env}/
-#   {project} = basename of git repo root
+#   {project} = basename of git repo root (or auto-detected from SQL path)
 #   {env}     = derived from connection name (e.g., mp_de_qa → qa)
 
 usage() {
-    sed -n '3,18p' "$0" | sed 's/^# \?//'
+    sed -n '3,22p' "$0" | sed 's/^# \?//'
     exit "${1:-0}"
 }
 
@@ -43,6 +46,72 @@ connection_to_env() {
         edw-develop)    echo "edw_develop" ;;
         *)              echo "$conn" ;;
     esac
+}
+
+# --- Convert JSON array to markdown table (with column padding) ---
+json_to_table() {
+    local json_file="$1"
+    local max_rows="${2:-0}"  # 0 = all rows
+
+    # Bail if empty or not valid JSON array
+    if ! jq -e 'type == "array" and length > 0' "$json_file" >/dev/null 2>&1; then
+        echo "(no rows returned)"
+        return
+    fi
+
+    local total_rows
+    total_rows=$(jq 'length' "$json_file")
+
+    # Get headers
+    local -a headers
+    mapfile -t headers < <(jq -r '.[0] | keys_unsorted[]' "$json_file")
+
+    # Calculate column widths (header length or max value length, whichever is larger)
+    local -a widths
+    for i in "${!headers[@]}"; do
+        local hdr="${headers[$i]}"
+        local max_val_len
+        max_val_len=$(jq -r --arg k "$hdr" '[.[][$k] | tostring | length] | max // 0' "$json_file")
+        local hdr_len=${#hdr}
+        widths[$i]=$(( max_val_len > hdr_len ? max_val_len : hdr_len ))
+        # Cap at 40 chars to prevent absurdly wide columns
+        (( widths[$i] > 40 )) && widths[$i]=40
+    done
+
+    # Build header row
+    local header_line="| "
+    local separator="| "
+    for i in "${!headers[@]}"; do
+        header_line+="$(printf "%-${widths[$i]}s" "${headers[$i]}") | "
+        separator+="$(printf '%0.s-' $(seq 1 "${widths[$i]}")) | "
+    done
+
+    echo "$header_line"
+    echo "$separator"
+
+    # Build data rows
+    local row_limit=$total_rows
+    if (( max_rows > 0 && max_rows < total_rows )); then
+        row_limit=$max_rows
+    fi
+
+    jq -r --argjson limit "$row_limit" '
+        .[:$limit][] |
+        [to_entries[] | .value // "" | tostring | .[:40]] |
+        @tsv
+    ' "$json_file" | while IFS=$'\t' read -ra vals; do
+        local line="| "
+        for i in "${!vals[@]}"; do
+            local w="${widths[$i]:-10}"
+            line+="$(printf "%-${w}s" "${vals[$i]}")"
+            line+=" | "
+        done
+        echo "$line"
+    done
+
+    if (( max_rows > 0 && total_rows > max_rows )); then
+        echo "... ($max_rows of $total_rows rows shown)"
+    fi
 }
 
 # --- Resolve snowflake directory (requires env) ---
@@ -80,7 +149,7 @@ if [[ "${1:-}" == "clean" ]]; then
     files=()
     while IFS= read -r -d '' f; do
         files+=("$f")
-    done < <(find "$snowflake_dir" \( -name '*.sql' -o -name '*-out.txt' \) -print0 2>/dev/null)
+    done < <(find "$snowflake_dir" \( -name '*.sql' -o -name '*-out.txt' -o -name '*-out.json' \) -print0 2>/dev/null)
 
     if [[ ${#files[@]} -eq 0 ]]; then
         echo "Nothing to clean in $snowflake_dir"
@@ -110,7 +179,6 @@ fi
 # --- Parse arguments ---
 sql_file=""
 connection=""
-format="TABLE"
 dry_run=false
 timeout_secs=120
 
@@ -118,9 +186,9 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --dry-run) dry_run=true; shift ;;
         -c) connection="$2"; shift 2 ;;
-        -f) format="$2"; shift 2 ;;
         -t) timeout_secs="$2"; shift 2 ;;
         -h|--help) usage 0 ;;
+        -f) echo "Note: -f flag is deprecated. Output is always dual (JSON + table)." >&2; shift 2 ;;
         -*) echo "Unknown option: $1" >&2; usage 1 ;;
         *)
             if [[ -z "$sql_file" ]]; then
@@ -147,8 +215,9 @@ out_dir="$(resolve_snowflake_dir "$env")"
 mkdir -p "$out_dir"
 
 # --- Resolve SQL file path ---
-# Search order: absolute path, CWD, base project dir, env subfolder
-if [[ "$sql_file" == /* ]]; then
+# Search order: absolute, CWD, project dir, env dir, then scan all project dirs
+sql_path=""
+if [[ "$sql_file" == /* ]] && [[ -f "$sql_file" ]]; then
     sql_path="$sql_file"
 elif [[ -f "$sql_file" ]]; then
     sql_path="$(pwd)/$sql_file"
@@ -157,50 +226,96 @@ elif [[ -f "$base_dir/$sql_file" ]]; then
 elif [[ -f "$out_dir/$sql_file" ]]; then
     sql_path="$out_dir/$sql_file"
 else
+    # Fallback: scan all project dirs under /tmp/claude/snowflake/
+    for d in /tmp/claude/snowflake/*/; do
+        [[ -d "$d" ]] || continue
+        if [[ -f "$d$sql_file" ]]; then
+            sql_path="$d$sql_file"
+            base_dir="${d%/}"
+            out_dir="$base_dir/$env"
+            mkdir -p "$out_dir"
+            break
+        fi
+        if [[ -f "$d$env/$sql_file" ]]; then
+            sql_path="$d$env/$sql_file"
+            base_dir="${d%/}"
+            out_dir="$base_dir/$env"
+            break
+        fi
+    done
+fi
+
+if [[ -z "$sql_path" ]]; then
     echo "Error: SQL file not found. Searched:" >&2
     echo "  $(pwd)/$sql_file" >&2
     echo "  $base_dir/$sql_file" >&2
     echo "  $out_dir/$sql_file" >&2
+    echo "  /tmp/claude/snowflake/*/$sql_file" >&2
+    echo "  /tmp/claude/snowflake/*/$env/$sql_file" >&2
     exit 1
 fi
 
-# --- Output always goes to the env subfolder ---
+# --- Output paths (dual: JSON + table) ---
 sql_basename="$(basename "$sql_file" .sql)"
-out_path="$out_dir/${sql_basename}-out.txt"
+json_path="$out_dir/${sql_basename}-out.json"
+table_path="$out_dir/${sql_basename}-out.txt"
 
-# --- Build snow command ---
-snow_args=(sql -f "$sql_path" --format "$format" -c "$connection")
+# --- Build snow command (always JSON internally) ---
+snow_args=(sql -f "$sql_path" --format JSON -c "$connection")
 
 # --- Run it ---
 echo "--- snow-2-claude ---"
 echo "  SQL:    $sql_path"
-echo "  Output: $out_path"
-echo "  Format: $format"
 echo "  Conn:   $connection ($env)"
 echo "  Timeout: ${timeout_secs}s"
 echo "---------------------"
 
 if $dry_run; then
     echo "  [dry-run] would execute: snow ${snow_args[*]}"
+    echo "  JSON output: $json_path"
+    echo "  Table output: $table_path"
     exit 0
 fi
 
-# Run snow with timeout to prevent indefinite hangs (e.g., expired auth tokens
-# triggering browser auth in a non-interactive terminal).
+# Run snow with timeout
 snow_exit=0
-timeout "$timeout_secs" snow "${snow_args[@]}" 2>&1 | tee "$out_path" || snow_exit=$?
+timeout "$timeout_secs" snow "${snow_args[@]}" > "$json_path" 2>&1 || snow_exit=$?
 
 echo ""
 if [[ $snow_exit -eq 124 ]]; then
-    echo "ERROR: Query timed out after ${timeout_secs}s" | tee -a "$out_path"
+    echo "ERROR: Query timed out after ${timeout_secs}s" | tee -a "$json_path"
     echo "  If auth expired, re-authenticate: snow connection test -c ${connection}"
-    echo "  Partial output (if any) saved to: $out_path"
+    echo "  Partial output (if any) saved to: $json_path"
     exit 1
 elif [[ $snow_exit -ne 0 ]]; then
-    echo "ERROR: snow exited with code $snow_exit" | tee -a "$out_path"
-    echo "  Output (if any) saved to: $out_path"
+    echo "ERROR: snow exited with code $snow_exit"
+    echo "  Output: $json_path"
+    cat "$json_path" >&2
     exit "$snow_exit"
 fi
 
-echo "Output saved to: $out_path"
+# --- Post-process: generate markdown table from JSON ---
+if jq -e 'type == "array"' "$json_path" >/dev/null 2>&1; then
+    row_count=$(jq 'length' "$json_path")
+    echo "  Rows: $row_count"
+    echo ""
+
+    # Write full table to file
+    json_to_table "$json_path" 0 > "$table_path"
+
+    # Print first 20 rows to console
+    json_to_table "$json_path" 20
+
+    echo ""
+    echo "  JSON:  $json_path"
+    echo "  Table: $table_path"
+else
+    # Non-array output (DDL, status messages, etc.) — save as-is
+    cp "$json_path" "$table_path"
+    echo "  Output (non-tabular):"
+    head -20 "$json_path"
+    echo ""
+    echo "  Output: $json_path"
+fi
+
 printf '\a'

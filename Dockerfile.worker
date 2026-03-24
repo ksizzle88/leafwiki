@@ -1,0 +1,40 @@
+# Claudio Worker — minimal headless image for autonomous agents
+# No VS Code, no shell customizations, no IDE tools
+# Just Claude CLI + git + essentials
+
+FROM node:22-slim AS base
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    jq \
+    curl \
+    ca-certificates \
+    openssh-client \
+    tini \
+    && rm -rf /var/lib/apt/lists/*
+
+# Claude Code CLI
+RUN npm install -g @anthropic-ai/claude-code
+
+# Create dev user (node:22-slim already has node:1000, reuse it)
+RUN usermod -l dev -d /home/dev -m node 2>/dev/null || true \
+    && groupmod -n dev node 2>/dev/null || true \
+    && mkdir -p /home/dev && chown dev:dev /home/dev
+
+# Init script
+COPY cli/scripts/init-claudio-v3.sh /usr/local/bin/init-claudio
+RUN chmod +x /usr/local/bin/init-claudio
+
+# Default Claude settings
+COPY .claude/ /opt/claudio-defaults/.claude/
+
+# Run as root initially — CMD drops to dev after fixing perms
+WORKDIR /workspace
+
+ENV CLAUDE_CONFIG_DIR=/home/dev/.claude
+
+ENTRYPOINT ["tini", "--"]
+CMD ["bash", "-c", "chown -R dev:dev /home/dev/.claudio-sessions /home/dev/.claudio-shared 2>/dev/null; su dev -c 'init-claudio && exec sleep infinity'"]
+
+HEALTHCHECK --interval=2m --timeout=5s --retries=3 \
+    CMD command -v claude >/dev/null

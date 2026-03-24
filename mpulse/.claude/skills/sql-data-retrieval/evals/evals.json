@@ -1,0 +1,77 @@
+{
+  "skill_name": "sql-data-retrieval",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Can you look at the test_db sqlite database and tell me how many members are in each plan type?",
+      "expected_output": "Claude writes a GROUP BY query on members.plan, executes via sql-2-claude against test_db, reads out.json, and reports: Gold=7, Silver=5, Bronze=3.",
+      "expectations": [
+        "SQL file is written to /tmp/claude/sql/{project}/test/{descriptive-name}/query.sql",
+        "SQL file first line is '-- connection: test_db'",
+        "SQL groups members by plan and counts them (GROUP BY plan)",
+        "Claude presents the sql-2-claude command with -c test_db",
+        "Claude executes or instructs execution via sql-2-claude (not raw sqlite3)",
+        "Claude reads out.json after execution to analyze results",
+        "Results correctly identify Gold=7, Silver=5, Bronze=3",
+        "Query name is descriptive (e.g., 'members-by-plan', not 'query1')"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Show me all denied claims over $200 from the test database, and which providers they're associated with",
+      "expected_output": "Claude writes a JOIN query between claims and providers filtered to denied + amount>200, executes against test_db, reads results, and reports the one matching claim: claim 19 ($275, Dr. James Wilson).",
+      "expectations": [
+        "SQL file has '-- connection: test_db' header",
+        "SQL joins claims and providers tables",
+        "SQL filters for status='denied' AND amount > 200",
+        "Claude executes via sql-2-claude with -c test_db",
+        "Claude reads out.json and summarizes findings",
+        "Results correctly identify claim 19 (Noah Clark, $275, denied, Dr. James Wilson)",
+        "Query name describes the analysis (e.g., 'denied-claims-over-200')"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "What does the schema look like in test_db? I want to understand what tables and columns are available.",
+      "expected_output": "Claude writes a query against sqlite_master or similar metadata, executes against test_db, and presents a clear summary of all 3 tables and their columns.",
+      "expectations": [
+        "SQL file has '-- connection: test_db' header",
+        "SQL queries sqlite_master, pragma_table_info, or similar metadata approach",
+        "Claude executes via sql-2-claude with -c test_db",
+        "Claude reads out.json and presents a structured summary",
+        "Summary covers all 3 tables: members, claims, providers",
+        "Summary includes column names and types for each table",
+        "Query name is descriptive (e.g., 'schema-overview')"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Which state has the highest total claims amount in the test database? Break it down by state.",
+      "expected_output": "Claude writes a query joining members and claims, grouped by state with SUM(amount), executes against test_db, and reports results. TX should lead (~5650), followed by CA (~2550), NY (~1600), IL (~925), FL (~875).",
+      "expectations": [
+        "SQL file has '-- connection: test_db' header",
+        "SQL joins members and claims to aggregate by member state",
+        "SQL uses SUM(amount) grouped by state",
+        "Claude executes via sql-2-claude with -c test_db",
+        "Claude reads out.json and provides a breakdown by state",
+        "TX is correctly identified as highest (members 3,8,13 have large surgery/procedure claims)",
+        "Query name is descriptive (e.g., 'claims-by-state')"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Something looks off with our inactive and suspended members in test_db. Can you check what claims they have and whether any are still pending or getting paid?",
+      "expected_output": "Claude writes an investigative query joining members (status IN inactive, suspended) with their claims, executes against test_db, and flags findings: Dan Brown (inactive) has 1 denied claim, Henry Taylor (suspended) has 1 denied claim, Noah Clark (inactive) has 1 denied claim. All non-active member claims are denied — no red flags.",
+      "expectations": [
+        "SQL file has '-- connection: test_db' header",
+        "SQL joins members and claims filtering for non-active member statuses",
+        "SQL includes member status and claim status in the output",
+        "Claude executes via sql-2-claude with -c test_db",
+        "Claude reads out.json and provides an analytical summary",
+        "Claude correctly identifies the 3 non-active members and their claim statuses",
+        "Claude addresses the user's concern (whether inactive/suspended members have active claims)",
+        "Query name reflects the investigative nature (e.g., 'inactive-member-claims')"
+      ]
+    }
+  ]
+}

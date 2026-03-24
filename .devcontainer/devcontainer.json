@@ -20,7 +20,12 @@
         "vscode": {
             "settings": {
                 "terminal.integrated.defaultProfile.linux": "zsh",
-                "editor.formatOnSave": true
+                "editor.formatOnSave": true,
+                "markdown.styles": [".vscode/markdown-preview.css"],
+                "markdown.preview.scrollEditorWithPreview": false,
+                "markdown.preview.scrollPreviewWithEditor": false,
+                "markdown.preview.markEditorSelection": false,
+                "markdown.preview.doubleClickToSwitchToEditor": false
             },
             "extensions": [
                 "anthropic.claude-code",
