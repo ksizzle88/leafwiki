@@ -29,6 +29,12 @@ connections:
       env: dp_config
       label: "DP Config (db7)"
 
+  sqlite:
+    test_db:
+      path: "${CLAUDE_SKILL_DIR}/../evals/test.db"
+      env: test
+      label: "Test Database (SQLite)"
+
   # postgres:
   #   edw_postgres:
   #     host: "vault://secret/data/edw/postgres#host"

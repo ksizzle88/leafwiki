@@ -41,6 +41,9 @@ def get_platform_module(platform: str):
     elif platform == "mssql":
         from platforms import mssql
         return mssql
+    elif platform == "sqlite":
+        from platforms import sqlite
+        return sqlite
     else:
         print(f"Error: unknown platform '{platform}'", file=sys.stderr)
         sys.exit(1)
@@ -83,7 +86,10 @@ def cmd_query(args: argparse.Namespace, extra_args: list[str]) -> None:
     # Execute
     mod = get_platform_module(platform)
     try:
-        data = mod.execute(sql_path, args.connection, args.timeout, extra_args or None)
+        kwargs = {}
+        if platform == "sqlite":
+            kwargs["db_path"] = conn_cfg.get("path", "")
+        data = mod.execute(sql_path, args.connection, args.timeout, extra_args or None, **kwargs)
     except subprocess.TimeoutExpired:
         write_error(query_dir, f"Query timed out after {args.timeout}s", 124,
                     f"Re-authenticate or increase timeout (-t)")
