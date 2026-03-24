@@ -14,12 +14,12 @@ def json_to_table(data: list[dict], max_rows: int = 0) -> str:
     # Get all headers across all rows
     headers = list(dict.fromkeys(k for row in data for k in row))
 
-    # Calculate column widths in one pass
-    widths = {}
-    for h in headers:
-        vals = [str(row.get(h) or "") for row in data]
-        max_val = max((len(v) for v in vals), default=0)
-        widths[h] = min(max(len(h), max_val), 40)
+    # Calculate column widths in a single pass over all rows
+    widths = {h: len(h) for h in headers}
+    for row in data:
+        for h in headers:
+            widths[h] = max(widths[h], len(str(row.get(h) or "")))
+    widths = {h: min(w, 40) for h, w in widths.items()}
 
     # Build table
     lines = []

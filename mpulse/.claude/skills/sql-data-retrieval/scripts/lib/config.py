@@ -36,11 +36,20 @@ def find_config() -> Path:
     sys.exit(1)
 
 
+_config_cache: dict[str, Any] | None = None
+
+
 def load_config(path: Path | None = None) -> dict[str, Any]:
-    """Load and return the full config."""
+    """Load and return the full config. Cached after first call."""
+    global _config_cache
+    if _config_cache is not None and path is None:
+        return _config_cache
     path = path or find_config()
     with open(path) as f:
-        return yaml.safe_load(f) or {}
+        cfg = yaml.safe_load(f) or {}
+    if path is None or path == find_config():
+        _config_cache = cfg
+    return cfg
 
 
 def lookup_connection(name: str, cfg: dict | None = None) -> tuple[str, str, dict]:

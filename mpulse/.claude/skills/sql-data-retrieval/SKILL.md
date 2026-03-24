@@ -52,7 +52,7 @@ The script checks this header against the `-c` flag and warns if they don't matc
 sql-2-claude {query-name} -c <connection>
 ```
 
-The `-c` flag is **required**. It determines the platform, connection, and output subfolder. See `connections.toml` in this skill directory for the full connection list, or run:
+The `-c` flag is **required**. It determines the platform, connection, and output subfolder. See `connections.yaml` in this skill directory for the full connection list, or run:
 
 ```
 sql-2-claude connections
